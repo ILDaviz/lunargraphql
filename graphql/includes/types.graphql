@@ -1,0 +1,824 @@
+type Product {
+    id: ID!
+    @globalId
+    brand: Brand
+    @belongsTo
+    productType: ProductType
+    @belongsTo
+    status: String!
+    attributeData: String!
+    @rename(attribute: "attribute_data")
+    images: [Image!]!
+    @hasMany
+    variants: [ProductVariant!]!
+    @hasMany
+    collections: [Collection!]!
+    @belongsToMany
+    associations: [ProductAssociation!]!
+    @hasMany
+    inverseAssociations: [ProductAssociation!]!
+    @belongsToMany
+    customerGroups: [CustomerGroup]
+    @belongsToMany
+    prices: [Price]
+    @hasManyThrough
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+    deletedAt: DateTimeUtc
+    @rename(attribute: "deleted_at")
+}
+
+# complete
+type ProductVariant {
+    id: ID!
+    @globalId
+    product: Product
+    @belongsTo
+    taxClass: TaxClass
+    @belongsTo
+    values: [ProductVariantValue!]!
+    @belongsToMany
+    images: [Image!]!
+    @belongsToMany
+    attributeData: String
+    @rename(attribute: "attribute_data")
+    taxRef: String
+    @rename(attribute: "tax_ref")
+    unitQuantity: Int!
+    @rename(attribute: "unit_quantity")
+    sku: String
+    gtin: String
+    mpn: String
+    ean: String
+    lengthValue: Float
+    @rename(attribute: "length_value")
+    lengthUnit: String
+    @rename(attribute: "length_unit")
+    widthValue: Float
+    @rename(attribute: "width_value")
+    widthUnit: String
+    @rename(attribute: "width_unit")
+    heightValue: Float
+    @rename(attribute: "height_value")
+    heightUnit: String
+    @rename(attribute: "height_unit")
+    weightValue: Float
+    @rename(attribute: "weight_value")
+    weightUnit: String
+    @rename(attribute: "weight_unit")
+    volumeValue: Float
+    @rename(attribute: "volume_value")
+    volumeUnit: String
+    @rename(attribute: "volume_unit")
+    shippable: Boolean!
+    stock: Int!
+    backorder: Int!
+    purchasable: String!
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+    deletedAt: DateTimeUtc
+    @rename(attribute: "deleted_at")
+}
+
+# complete
+type ProductVariantValue {
+    id: ID!
+    @globalId
+    name: String!
+    position: Int!
+    productOption: ProductOption!
+    @belongsTo
+    variants: [ProductVariant!]!
+    @belongsToMany
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
+
+# complete
+type ProductOption {
+    id: ID!
+    @globalId
+    name: String! # TODO: this is collections
+    label: String! # TODO: this is collections
+    position: Int!
+    handle: String
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+    values: [ProductVariantValue!]!
+    @hasMany
+}
+
+# complete
+type ProductAssociation {
+    id: ID!
+    @globalId
+    type: String!
+    parent: Product!
+    @belongsTo
+    target: Product!
+    @belongsTo
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
+
+# complete
+enum AssociationType {
+    CROSS_SELL @enum(value: "cross_sell")
+    UP_SELL @enum(value: "up_sell")
+    ALTERNATE @enum(value: "alternate")
+}
+
+# complete
+type Collection {
+    id: ID!
+    @globalId
+    group: CollectionGroup!
+    @belongsTo
+    products: [Product!]!
+    @belongsToMany
+    customerGroups: [CustomerGroup!]!
+    @belongsToMany
+    type: String!
+    attributeData: String!
+    @rename(attribute: "attribute_data")
+    sort: String!
+    _lft: Int!
+    _rgt: Int!
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+    deletedAt: DateTimeUtc
+    @rename(attribute: "deleted_at")
+}
+
+# complete
+type CollectionGroup {
+    id: ID!
+    @globalId
+    name: String!
+    handle: String!
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+    collections: [Collection!]!
+    @hasMany
+}
+
+# complete
+type Image {
+    id: ID!
+    @globalId
+    orderColumn: Int!
+    @rename(attribute: "order_column")
+    collectionName: String!
+    @rename(attribute: "collection_name")
+    name: String!
+    fileName: String!
+    @rename(attribute: "file_name")
+    mimeType: String
+    @rename(attribute: "mime_type")
+    size: Int!
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+    generatedConversions: GeneratedConversion
+    @rename(attribute: "generated_conversions")
+    originalUrl: String!
+    @rename(attribute: "original_url")
+}
+
+# complete
+type GeneratedConversion
+{
+    zoom: Boolean
+    large: Boolean
+    small: Boolean
+    medium: Boolean
+}
+
+# complete
+type Brand {
+    id: ID!
+    @globalId
+    name: String!
+    attributeData: String!
+    @rename(attribute: "attribute_data")
+    mappedAttributes: [Attribute]
+    @morphToMany
+    products: [Product]
+    @hasMany
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
+
+# complete
+type ProductType {
+    id: ID!
+    @globalId
+    name: String!
+    mappedAttributes: [Attribute!]!
+    @morphToMany
+    products: [Product!]!
+    @hasMany
+    productAttributes: [Attribute!]!
+    @morphToMany
+    variantAttributes: [Attribute!]!
+    @morphToMany
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
+
+# complete
+type Attribute {
+    id: ID!
+    @globalId
+    attributeGroup: AttributeGroup
+    @belongsTo
+    position: Int!
+    name: String!
+    handle: String!
+    section: String!
+    type: String!
+    required: String!
+    defaultValue: String
+    @rename(attribute: "default_value")
+    configuration: String!
+    system: Boolean!
+    validationRules: String!
+    @rename(attribute: "validation_rules")
+    filterable: Boolean!
+    searchable: Boolean!
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
+
+# complete
+type AttributeGroup {
+    id: ID!
+    @globalId
+    attributeType: String!
+    name: String!
+    handle: String!
+    position: Int!
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+    attributes: [Attribute!]!
+    @hasMany
+}
+
+# complete
+type Price {
+    id: ID!
+    @globalId
+    price: Int!
+    currency: Currency
+    @belongsTo
+    customerGroup: CustomerGroup
+    @belongsTo
+    comparePrice: Int
+    @rename(attribute: "compare_price")
+    tier: Int!
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
+
+# complete
+type Currency {
+    id: ID!
+    @globalId
+    code: String!
+    name: String!
+    exchangeRate: Float!
+    @rename(attribute: "exchange_rate")
+    decimalPlaces: Int!
+    @rename(attribute: "decimal_places")
+    enabled: Boolean!
+    default: Boolean!
+    prices: [Price!]!
+    @hasMany
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
+
+# complete
+type TaxClass {
+    id: ID!
+    @globalId
+    name: String!
+    default: Boolean!
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+    taxRateAmounts: [TaxRateAmount!]!
+    @hasMany
+    productVariants: [ProductVariant!]!
+    @hasMany
+}
+
+# complete
+type TaxRate {
+    id: ID!
+    @globalId
+    taxZone: TaxZone!
+    @belongsTo
+    taxRateAmounts: [TaxRateAmount!]!
+    @hasMany
+    name: String!
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
+
+# complete
+type TaxRateAmount {
+    id: ID!
+    @globalId
+    taxRate: TaxRate!
+    @belongsTo
+    taxClass: TaxClass!
+    @belongsTo
+    percentage: Float!
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
+
+# complete
+type TaxZone {
+    id: ID!
+    @globalId
+    name: String!
+    zoneType: String!
+    @rename(attribute: "zone_type")
+    priceDisplay: String!
+    @rename(attribute: "price_display")
+    active: Boolean!
+    default: Boolean!
+    countries: [TaxZoneCountry!]!
+    @hasMany
+    states: [TaxZoneState!]!
+    @hasMany
+    postcodes: [TaxZonePostcode!]!
+    @hasMany
+    customerGroups: [TaxZoneCustomerGroup!]!
+    @hasMany
+    taxRates: [TaxRate!]!
+    @hasMany
+    taxAmounts: [TaxRateAmount!]!
+    @hasMany
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
+
+# complete
+type TaxZoneCountry {
+    id: ID!
+    @globalId
+    taxZone: TaxZone!
+    @belongsTo
+    country: Country!
+    @belongsTo
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
+
+# complete
+type TaxZoneState {
+    id: ID!
+    @globalId
+    taxZone: TaxZone!
+    @belongsTo
+    state: State!
+    @belongsTo
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
+
+# complete
+type TaxZonePostcode {
+    id: ID!
+    @globalId
+    taxZone: TaxZone!
+    @belongsTo
+    country: Country!
+    @belongsTo
+    postcode: String!
+    @belongsTo
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
+
+# complete
+type TaxZoneCustomerGroup {
+    id: ID!
+    @globalId
+    taxZone: TaxZone!
+    @belongsTo
+    customerGroup: CustomerGroup!
+    @belongsTo
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
+
+# complete
+type Country {
+    id: ID!
+    @globalId
+    name: String!
+    iso3: String!
+    iso2: String
+    states: [State!]!
+    @hasMany
+    phonecode: String!
+    capital: String
+    currency: String!
+    native: String
+    emoji: String!
+    emojiU: String!
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
+
+# complete
+type State {
+    id: ID!
+    @globalId
+    country: Country!
+    @belongsTo
+    name: String!
+    code: String!
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
+
+# complete
+type CustomerGroup {
+    id: ID!
+    @globalId
+    name: String!
+    customers: [Customer!]!
+    @belongsToMany
+    handle: String!
+    default: Boolean!
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
+
+# complete
+type Customer {
+    id: ID!
+    @globalId
+    customerGroup: CustomerGroup
+    @belongsTo
+    addresses: [Address!]!
+    @hasMany
+    orders: [Order!]!
+    @hasMany
+    mappedAttributes: [Attribute!]!
+    @morphToMany
+    title: String
+    firstName: String!
+    @rename(attribute: "first_name")
+    lastName: String!
+    @rename(attribute: "last_name")
+    companyName: String
+    @rename(attribute: "company_name")
+    vatNo: String
+    @rename(attribute: "vat_no")
+    accountRef: String
+    @rename(attribute: "account_ref")
+    # TODO to test this is a attribute object
+    attributeData: String
+    @rename(attribute: "attribute_data")
+    meta: String # TODO this is array object
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
+
+# complete
+type Address {
+    id: ID!
+    @globalId
+    customer: Customer!
+    @belongsTo
+    country: Country!
+    @belongsTo
+    title: String
+    firstName: String!
+    @rename(attribute: "first_name")
+    lastName: String!
+    @rename(attribute: "last_name")
+    companyName: String
+    @rename(attribute: "company_name")
+    lineOne: String!
+    @rename(attribute: "line_one")
+    lineTwo: String
+    @rename(attribute: "line_two")
+    lineThree: String
+    @rename(attribute: "line_three")
+    city: String!
+    state: String
+    postcode: String
+    deliveryInstructions: String
+    @rename(attribute: "delivery_instructions")
+    contactMail: String
+    @rename(attribute: "contact_mail")
+    contactPhone: String
+    @rename(attribute: "contact_phone")
+    meta: String # TODO this is array object
+    shippingDefault: Boolean!
+    @rename(attribute: "shipping_default")
+    billingDefault: Boolean!
+    @rename(attribute: "billing_default")
+    lastUsedAt: DateTimeUtc
+    @rename(attribute: "last_used_at")
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
+
+# complete
+type Order {
+    id: ID!
+    @globalId
+    channel: Channel!
+    @belongsTo
+    cart: Cart!
+    @belongsTo
+    lines: [OrderLine!]!
+    @hasMany
+    physicalLines: [OrderLine!]!
+    @hasMany
+    digitalLines: [OrderLine!]!
+    @hasMany
+    shippingLines: [OrderLine!]!
+    @hasMany
+    productLines: [OrderLine!]!
+    @hasMany
+    currency: Currency!
+    @belongsTo
+    addresses: [OrderAddress!]!
+    @hasMany
+    shippingAddress: OrderAddress!
+    @hasOne
+    billingAddress: OrderAddress!
+    @hasOne
+    transactions: [Transaction!]!
+    @hasMany
+    captures: [Transaction!]!
+    @hasMany
+    intents: [Transaction!]!
+    @hasMany
+    refunds: [Transaction!]!
+    @hasMany
+    customer: Customer!
+    @belongsTo
+    user: User!
+    @belongsTo
+    newCustomer: Boolean!
+    @rename(attribute: "new_customer")
+    status: String!
+    reference: String
+    customerReference: String
+    @rename(attribute: "customer_reference")
+    subTotal: Int!
+    @rename(attribute: "sub_total")
+    discountTotal: Int!
+    @rename(attribute: "discount_total")
+    discountBreakdown: String! # TODO this is array object
+    @rename(attribute: "discount_breakdown")
+    shippingBreakdown: String! # TODO this is array object
+    @rename(attribute: "shipping_breakdown")
+    taxBreakdown: String! # TODO this is array object
+    @rename(attribute: "tax_breakdown")
+    taxTotal: Int!
+    @rename(attribute: "tax_total")
+    total: Int!
+    notes: String
+    companyCurrencyCode: String
+    @rename(attribute: "company_currency_code")
+    exchangeRate: Float!
+    @rename(attribute: "exchange_rate")
+    meta: String! # TODO this is array object
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+    placedAt: DateTimeUtc
+    @rename(attribute: "placed_at")
+}
+
+# complete
+type Channel {
+    id: ID!
+    @globalId
+    name: String!
+    handle: String!
+    default: Boolean!
+    url: String
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+    deletedAt: DateTimeUtc
+    @rename(attribute: "deleted_at")
+}
+
+# complete
+type OrderLine {
+    id: ID!
+    @globalId
+    #purchasable TODO: this is polymorphic
+    # currency TODO: this is hasOneThrough
+    order: Order!
+    @belongsTo
+    type: String!
+    description: String!
+    option: String
+    identifier: String
+    unitPrice: Int!
+    @rename(attribute: "unit_price")
+    unitQuantity: Int!
+    @rename(attribute: "unit_quantity")
+    quantity: Int!
+    subTotal: Int!
+    @rename(attribute: "sub_total")
+    discountTotal: Int!
+    @rename(attribute: "discount_total")
+    taxBreakdown: String! # TODO this is array object
+    @rename(attribute: "tax_breakdown")
+    taxTotal: Int!
+    @rename(attribute: "tax_total")
+    total: Int!
+    notes: String
+    meta: String! # TODO this is array object
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
+
+# complete
+type OrderAddress {
+    id: ID!
+    @globalId
+    order: Order!
+    @belongsTo
+    country: Country!
+    @belongsTo
+    title: String
+    firstName: String
+    @rename(attribute: "first_name")
+    lastName: String
+    @rename(attribute: "last_name")
+    companyName: String
+    @rename(attribute: "company_name")
+    lineOne: String
+    @rename(attribute: "line_one")
+    lineTwo: String
+    @rename(attribute: "line_two")
+    lineThree: String
+    @rename(attribute: "line_three")
+    city: String
+    state: String
+    postcode: String
+    deliveryInstructions: String
+    @rename(attribute: "delivery_instructions")
+    contactMail: String
+    @rename(attribute: "contact_mail")
+    contactPhone: String
+    @rename(attribute: "contact_phone")
+    type: String!
+    shippingOption: String
+    @rename(attribute: "shipping_option")
+    meta: String! # TODO this is array object
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
+
+type Transaction {
+    id: ID!
+    @globalId
+    order: Order!
+    @belongsTo
+    # currency TODO: this is hasOneThrough
+    success: Boolean!
+    type: String!
+    driver: String!
+    amount: Int!
+    reference: String!
+    status: String!
+    notes: String
+    cardType: String!
+    @rename(attribute: "card_type")
+    lastFour: String
+    @rename(attribute: "last_four")
+    meta: String! # TODO this is array object
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+    deletedAt: DateTimeUtc
+    @rename(attribute: "deleted_at")
+}
+
+type Cart {
+    id: ID!
+    @globalId
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
