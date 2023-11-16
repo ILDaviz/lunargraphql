@@ -1,0 +1,32 @@
+{
+    "name": "ildaviz/lunargraphql",
+    "description": "A PHP library to generate a graph of the Lunar",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "David Galet",
+            "email": "davidgalet@gmail.com"
+        }
+    ],
+    "require": {
+        "lunarphp/lunar": "^0.7.2",
+        "nuwave/lighthouse": "^6.22",
+        "spatie/laravel-package-tools": "^1.16"
+    },
+    "autoload": {
+        "psr-4": {
+            "Lunargraphql\\": "src"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Lunargraphql\\LunargraphqlServiceProvider"
+            ]
+        }
+    },
+    "require-dev": {
+        "spatie/laravel-ray": "^1.33"
+    }
+}
