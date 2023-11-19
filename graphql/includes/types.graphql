@@ -6,18 +6,18 @@ type Product {
     productType: ProductType
     @belongsTo
     status: String!
-    attributeData: String!
-    @rename(attribute: "attribute_data")
+    attributeData: [AttributeData]!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@attributeData")
     images: [Image!]!
     @hasMany
     variants: [ProductVariant!]!
     @hasMany
     collections: [Collection!]!
-    @belongsToMany
+    @belongsToMany(type: PAGINATOR)
     associations: [ProductAssociation!]!
-    @hasMany
+    @hasMany(type: PAGINATOR)
     inverseAssociations: [ProductAssociation!]!
-    @belongsToMany
+    @belongsToMany(type: PAGINATOR)
     customerGroups: [CustomerGroup]
     @belongsToMany
     prices: [Price]
@@ -42,8 +42,8 @@ type ProductVariant {
     @belongsToMany
     images: [Image!]!
     @belongsToMany
-    attributeData: String
-    @rename(attribute: "attribute_data")
+    attributeData: [AttributeData]!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@attributeData")
     taxRef: String
     @rename(attribute: "tax_ref")
     unitQuantity: Int!
@@ -88,7 +88,7 @@ type ProductVariant {
 type ProductVariantValue {
     id: ID!
     @globalId
-    name: String!
+    name: String! # As collection
     position: Int!
     productOption: ProductOption!
     @belongsTo
@@ -149,8 +149,8 @@ type Collection {
     customerGroups: [CustomerGroup!]!
     @belongsToMany
     type: String!
-    attributeData: String!
-    @rename(attribute: "attribute_data")
+    attributeData: [AttributeData]!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@attributeData")
     sort: String!
     _lft: Int!
     _rgt: Int!
@@ -214,8 +214,8 @@ type Brand {
     id: ID!
     @globalId
     name: String!
-    attributeData: String!
-    @rename(attribute: "attribute_data")
+    attributeData: [AttributeData!]!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@attributeData")
     mappedAttributes: [Attribute]
     @morphToMany
     products: [Product]
@@ -261,7 +261,7 @@ type Attribute {
     @rename(attribute: "default_value")
     configuration: String!
     system: Boolean!
-    validationRules: String!
+    validationRules: String
     @rename(attribute: "validation_rules")
     filterable: Boolean!
     searchable: Boolean!
@@ -275,7 +275,7 @@ type Attribute {
 type AttributeGroup {
     id: ID!
     @globalId
-    attributeType: String!
+    attributeType: String
     name: String!
     handle: String!
     position: Int!
@@ -291,18 +291,29 @@ type AttributeGroup {
 type Price {
     id: ID!
     @globalId
-    price: Int!
+    price: DataTypePrice!
+    priceIncTax: Int!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\PriceResolver@getPriceIncTax")
+    priceExTax: Int!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\PriceResolver@getPriceExTax")
     currency: Currency
     @belongsTo
     customerGroup: CustomerGroup
     @belongsTo
-    comparePrice: Int
-    @rename(attribute: "compare_price")
+    comparePrice: Int!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\PriceResolver@getComparePrice")
     tier: Int!
     createdAt: DateTimeUtc
     @rename(attribute: "created_at")
     updatedAt: DateTimeUtc
     @rename(attribute: "updated_at")
+}
+
+# complete
+type DataTypePrice{
+    value: Int!
+    currency: Currency!
+    unitQty: Int!
 }
 
 # complete
@@ -531,9 +542,8 @@ type Customer {
     @rename(attribute: "vat_no")
     accountRef: String
     @rename(attribute: "account_ref")
-    # TODO to test this is a attribute object
-    attributeData: String
-    @rename(attribute: "attribute_data")
+    attributeData: [AttributeData]!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@attributeData")
     meta: String # TODO this is array object
     createdAt: DateTimeUtc
     @rename(attribute: "created_at")
@@ -774,51 +784,169 @@ type Transaction {
 type Cart {
     id: ID!
     @globalId
+    lines: [CartLine!]!
+    @hasMany
+    currency: Currency!
+    @belongsTo
+    user: User!
+    @belongsTo
+    customer: Customer!
+    @belongsTo
+    addresses: [CartAddress!]!
+    @hasMany
+    shippingAddress: CartAddress!
+    @hasOne
+    billingAddress: CartAddress!
+    @hasOne
+    orders: [Order!]!
+    @hasMany
+    draftOrder: Order!
+    @hasOne
+    completeOrder: Order!
+    @hasOne
+    completeOrders: [Order!]!
+    @hasMany
+    couponCode: String
+    @rename(attribute: "coupon_code")
+    completedAt: DateTimeUtc
+    @rename(attribute: "completed_at")
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
 }
 
+type CartLine {
+    id: ID!
+    @globalId
+    cart: Cart!
+    @belongsTo
+#    taxClass: TaxClass!
+#    @hasOneThrough
+    discounts: [Discount!]!
+    @belongsToMany
+    purchasable: Product! # TODO Da gestire.
+    @morphTo
+    quantity: Int!
+    meta: String! # TODO this is array object
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
 
+type CartAddress {
+    id: ID!
+    @globalId
+    cart: Cart!
+    @belongsTo
+    country: Country!
+    @belongsTo
+    title: String
+    firstName: String
+    @rename(attribute: "first_name")
+    lastName: String
+    @rename(attribute: "last_name")
+    companyName: String
+    @rename(attribute: "company_name")
+    lineOne: String
+    @rename(attribute: "line_one")
+    lineTwo: String
+    @rename(attribute: "line_two")
+    lineThree: String
+    @rename(attribute: "line_three")
+    city: String
+    state: String
+    postcode: String
+    deliveryInstructions: String
+    @rename(attribute: "delivery_instructions")
+    contactMail: String
+    @rename(attribute: "contact_mail")
+    contactPhone: String
+    @rename(attribute: "contact_phone")
+    type: String!
+    shippingOption: String
+    @rename(attribute: "shipping_option")
+    meta: String! # TODO this is array object
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
 
+type Discount {
+    id: ID!
+    @globalId
+    name: String!
+    handle: String!
+    coupon: String
+    type: String!
+    users: [User!]!
+    @belongsToMany
+    purchasables: [DiscountPurchasable!]!
+    @hasMany
+    purchasableConditions: [DiscountPurchasable!]!
+    @hasMany
+    purchasableExclusions: [DiscountPurchasable!]!
+    @hasMany
+    purchasableLimitations: [DiscountPurchasable!]!
+    @hasMany
+    purchasableRewards: [DiscountPurchasable!]!
+    @hasMany
+    collections: [Collection!]!
+    @belongsToMany
+    customerGroups: [CustomerGroup!]!
+    @belongsToMany
+    brands: [Brand!]!
+    @belongsToMany
+    startsAt: DateTimeUtc!
+    @rename(attribute: "starts_at")
+    endsAt: DateTimeUtc!
+    @rename(attribute: "ends_at")
+    uses: Int!
+    maxUses: Int!
+    @rename(attribute: "max_uses")
+    priority: Int!
+    @rename(attribute: "priority")
+    stop: Boolean!
+    @rename(attribute: "stop")
+    createdAt: DateTimeUtc!
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc!
+    @rename(attribute: "updated_at")
+}
 
+type DiscountPurchasable {
+    id: ID!
+    @globalId
+    purchasable: Product! # TODO Da gestire.
+    @morphTo
+    discount: Discount!
+    @belongsTo
+    type: String!
+    createdAt: DateTimeUtc!
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc!
+    @rename(attribute: "updated_at")
+}
 
+type User {
+    id: ID!
+    @globalId
+    name: String!
+    email: String!
+    customers: [Customer!]!
+    @belongsToMany
+    orders: [Order!]!
+    @hasMany
+    createdAt: DateTimeUtc!
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc!
+    @rename(attribute: "updated_at")
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+type AttributeData {
+    type: String
+    name: String
+    value: String
+}

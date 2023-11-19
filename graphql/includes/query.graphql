@@ -2,3 +2,8 @@ extend type Query {
     products: [Product!]!
     @all
 }
+
+extend type Query @guard {
+    me: User!
+    @auth
+}
