@@ -2,12 +2,16 @@
 
 namespace Lunargraphql\Tests;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Lunargraphql\LunargraphqlServiceProvider;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Nuwave\Lighthouse\Testing\MakesGraphQLRequests;
 use Orchestra\Testbench\TestCase as Orchestra;
 
 class TestCase extends Orchestra
 {
+    use RefreshDatabase, MakesGraphQLRequests;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -28,9 +32,5 @@ class TestCase extends Orchestra
     {
         config()->set('database.default', 'testing');
 
-        /*
-        $migration = include __DIR__.'/../database/migrations/create_Lunargraphql_table.php.stub';
-        $migration->up();
-        */
     }
 }

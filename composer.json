@@ -19,6 +19,11 @@
             "Lunargraphql\\": "src"
         }
     },
+    "autoload-dev": {
+        "psr-4": {
+            "Lunargraphql\\Tests\\": "tests"
+        }
+    },
     "extra": {
         "laravel": {
             "providers": [
@@ -26,7 +31,19 @@
             ]
         }
     },
+    "scripts": {
+        "test": [
+            "vendor/bin/pest"
+        ]
+    },
     "require-dev": {
-        "spatie/laravel-ray": "^1.33"
+        "spatie/laravel-ray": "^1.33",
+        "pestphp/pest": "^2.24",
+        "orchestra/testbench": "^8.0"
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
     }
 }
