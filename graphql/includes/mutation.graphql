@@ -1,0 +1,65 @@
+extend type Mutation {
+    """
+    Create a new user and add customerID if it exists
+    customerID is used to link a user to a customer in stripe
+    """
+    createUser(
+        name: String!,
+        email: String!,
+        password: String!
+        customerID: ID
+        @globalId(decode: ID)
+    ): LoginResponse
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\UserResolver@createUser")
+
+    """
+    Login a user
+    """
+    login(
+        email: String!,
+        password: String!
+    ): LoginResponse
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\UserResolver@login")
+
+    """
+    Logout a user
+    """
+    logout: Boolean
+    @guard
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\UserResolver@logout")
+
+    """
+    reset password
+    """
+    resetPassword(
+        password: String!
+    ): Boolean
+    @guard
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\UserResolver@resetPassword")
+    @throttle(
+        maxAttempts: 10,
+        decayMinutes: 10,
+    )
+
+
+    """
+    send reset password email
+    """
+    sendResetPasswordEmail(
+        email: String!
+    ): Boolean
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\UserResolver@sendResetPasswordEmail")
+    @throttle(
+        maxAttempts: 10,
+        decayMinutes: 10,
+    )
+
+    """
+    send reset password from token
+    """
+    sendResetPasswordFromToken(
+        token: String!
+    ): Boolean
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\UserResolver@resetPasswordFromToken")
+}
+
