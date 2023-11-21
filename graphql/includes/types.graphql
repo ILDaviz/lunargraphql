@@ -523,8 +523,8 @@ type CustomerGroup {
 type Customer {
     id: ID!
     @globalId
-    customerGroup: CustomerGroup
-    @belongsTo
+    customerGroups: [CustomerGroup!]!
+    @belongsToMany
     addresses: [Address!]!
     @hasMany
     orders: [Order!]!
@@ -544,7 +544,8 @@ type Customer {
     @rename(attribute: "account_ref")
     attributeData: [AttributeData]!
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@attributeData")
-    meta: String # TODO this is array object
+    meta: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@arrayObject")
     createdAt: DateTimeUtc
     @rename(attribute: "created_at")
     updatedAt: DateTimeUtc
@@ -581,7 +582,8 @@ type Address {
     @rename(attribute: "contact_mail")
     contactPhone: String
     @rename(attribute: "contact_phone")
-    meta: String # TODO this is array object
+    meta: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@arrayObject")
     shippingDefault: Boolean!
     @rename(attribute: "shipping_default")
     billingDefault: Boolean!
@@ -642,12 +644,12 @@ type Order {
     @rename(attribute: "sub_total")
     discountTotal: Int!
     @rename(attribute: "discount_total")
-    discountBreakdown: String! # TODO this is array object
-    @rename(attribute: "discount_breakdown")
-    shippingBreakdown: String! # TODO this is array object
-    @rename(attribute: "shipping_breakdown")
-    taxBreakdown: String! # TODO this is array object
-    @rename(attribute: "tax_breakdown")
+    discountBreakdown: String!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@arrayObject")
+    shippingBreakdown: String!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@arrayObject")
+    taxBreakdown: String!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@arrayObject")
     taxTotal: Int!
     @rename(attribute: "tax_total")
     total: Int!
@@ -656,7 +658,8 @@ type Order {
     @rename(attribute: "company_currency_code")
     exchangeRate: Float!
     @rename(attribute: "exchange_rate")
-    meta: String! # TODO this is array object
+    meta: String!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@arrayObject")
     createdAt: DateTimeUtc
     @rename(attribute: "created_at")
     updatedAt: DateTimeUtc
@@ -702,13 +705,14 @@ type OrderLine {
     @rename(attribute: "sub_total")
     discountTotal: Int!
     @rename(attribute: "discount_total")
-    taxBreakdown: String! # TODO this is array object
-    @rename(attribute: "tax_breakdown")
+    taxBreakdown: String!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@arrayObject")
     taxTotal: Int!
     @rename(attribute: "tax_total")
     total: Int!
     notes: String
-    meta: String! # TODO this is array object
+    meta: String!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@arrayObject")
     createdAt: DateTimeUtc
     @rename(attribute: "created_at")
     updatedAt: DateTimeUtc
@@ -748,7 +752,8 @@ type OrderAddress {
     type: String!
     shippingOption: String
     @rename(attribute: "shipping_option")
-    meta: String! # TODO this is array object
+    meta: String!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@arrayObject")
     createdAt: DateTimeUtc
     @rename(attribute: "created_at")
     updatedAt: DateTimeUtc
@@ -772,7 +777,8 @@ type Transaction {
     @rename(attribute: "card_type")
     lastFour: String
     @rename(attribute: "last_four")
-    meta: String! # TODO this is array object
+    meta: String!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@arrayObject")
     createdAt: DateTimeUtc
     @rename(attribute: "created_at")
     updatedAt: DateTimeUtc
@@ -828,7 +834,8 @@ type CartLine {
     purchasable: Product! # TODO Da gestire.
     @morphTo
     quantity: Int!
-    meta: String! # TODO this is array object
+    meta: String!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@arrayObject")
     createdAt: DateTimeUtc
     @rename(attribute: "created_at")
     updatedAt: DateTimeUtc
@@ -867,7 +874,8 @@ type CartAddress {
     type: String!
     shippingOption: String
     @rename(attribute: "shipping_option")
-    meta: String! # TODO this is array object
+    meta: String!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@arrayObject")
     createdAt: DateTimeUtc
     @rename(attribute: "created_at")
     updatedAt: DateTimeUtc
@@ -949,4 +957,9 @@ type AttributeData {
     type: String
     name: String
     value: String
+}
+
+type LoginResponse {
+    token: String!
+    user: User!
 }
