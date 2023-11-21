@@ -2,6 +2,7 @@
 
 namespace Lunargraphql\GraphQL\Resolvers;
 
+use Illuminate\Database\Eloquent\Casts\ArrayObject;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -31,5 +32,11 @@ class CommonResolver
         }
 
         return $attributeData;
+    }
+
+    public function arrayObject(Model $model, array $args): string
+    {
+        /** @var ArrayObject $meta */
+        return json_encode($model?->meta?->toArray() ?? []);
     }
 }
