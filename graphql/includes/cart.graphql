@@ -1,0 +1,66 @@
+extend type Query {
+
+    """
+    - This api get a current session cart or create a new one
+    """
+    getCart: Cart!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@getCartQuery")
+}
+
+extend type Mutation {
+
+    """
+    - This api add or update a product variant to the cart
+    - If the cart is not exist, it will create a new one
+    """
+    addOrUpdateProductVariantToCart(
+        productVariantID: ID!,
+        @globalId
+        quantity: Int!
+        metaData: String!
+    ): Cart!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@addProductVariantToCartMutation")
+
+# TODO
+#    """
+#    - Set the shipping address and billing address to the current cart
+#    """
+#    setAddressesToCart(
+#        shippingAddress: ShippingAddressInput!,
+#        billingAddress: ShippingAddressInput!
+#    ): Cart!
+#    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@setAddressesToCartMutation")
+#
+#    """
+#    - Clear the cart and create a new one
+#    """
+#    clearCart: Cart!
+#    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@clearCartMutation")
+}
+
+input ShippingAddressInput {
+    firstName: String!
+    lastName: String!
+    listOne: String!
+    listTwo: String
+    listThree: String
+    city: String!
+    state: String!
+    postcode: String!
+    countryId: ID!
+    @globalId
+}
+
+input BillingAddressInput {
+    firstName: String!
+    lastName: String!
+    listOne: String!
+    listTwo: String
+    listThree: String
+    city: String!
+    state: String!
+    postcode: String!
+    countryId: ID!
+    @globalId
+}
+

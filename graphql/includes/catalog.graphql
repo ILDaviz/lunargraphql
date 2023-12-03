@@ -1,0 +1,38 @@
+extend type Query {
+    """
+    - This api get a list of products
+    - Pagination is enabled by default
+    - Catalog is filtered by channel and collections watch CatalogFilterInput input type
+    """
+    catalog(
+        filter: CatalogFilterInput
+        @builder(method: "Lunargraphql\\GraphQL\\Builders\\CatalogBuilder@filterCatalog")
+    ): [Product!]!
+    @paginate
+
+    """
+    - This api get a list of attributes that can be used to filter the catalog
+    """
+    getFilterableAttributes: [Attribute!]!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@getFilterableAttributesQuery")
+}
+
+input CatalogFilterInput {
+    channels: [ID!]
+    @globalId(decode: ID)
+    collections: [ID!]
+    @globalId(decode: ID)
+    search: String
+    filters: [FilterInput!]
+    prices: [PriceRangeInput!]
+}
+
+input FilterInput {
+    attribute: String!
+    value: String!
+}
+
+input PriceRangeInput {
+    min: Float
+    max: Float
+}

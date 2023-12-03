@@ -63,3 +63,11 @@ extend type Mutation {
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\UserResolver@resetPasswordFromToken")
 }
 
+extend type Query @guard {
+    """
+    - This api is a logged user
+    """
+    me: User!
+    @auth
+}
+
