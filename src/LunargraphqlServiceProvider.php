@@ -2,6 +2,7 @@
 
 namespace Lunargraphql;
 
+use Illuminate\Support\Facades\Gate;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 

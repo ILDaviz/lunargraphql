@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Lunar\Models\Customer;
-use Lunargraphql\Exceptions\AuthenticationException;
+use Lunargraphql\Exceptions\CartException;
 use Lunargraphql\Traits\UseLunargraphqlUsers;
 
 class UserResolver {
@@ -32,7 +32,7 @@ class UserResolver {
 
         throw_if($this->getUserModel()
             ->where('email', $email)
-            ->exists(), AuthenticationException::userAlreadyExists());
+            ->exists(), CartException::userAlreadyExists());
 
         $user = $this->getUserModel()
             ->create([
@@ -69,9 +69,9 @@ class UserResolver {
             ->where('email', $email)
             ->first();
 
-        throw_if(! $user, AuthenticationException::userNotFound());
+        throw_if(! $user, CartException::userNotFound());
 
-        throw_if(! Hash::check($password, $user->password), AuthenticationException::passwordIncorrect());
+        throw_if(! Hash::check($password, $user->password), CartException::passwordIncorrect());
 
         $tokenName = Str::uuid()->toString();
         $token = $user->createToken($tokenName)->plainTextToken;
@@ -119,9 +119,9 @@ class UserResolver {
 
         return match ($status) {
             Password::RESET_LINK_SENT => true,
-            Password::INVALID_USER => throw AuthenticationException::invalidUser(),
-            Password::INVALID_TOKEN => throw AuthenticationException::invalidToken(),
-            Password::RESET_THROTTLED => throw AuthenticationException::resetThrottled(),
+            Password::INVALID_USER => throw CartException::invalidUser(),
+            Password::INVALID_TOKEN => throw CartException::invalidToken(),
+            Password::RESET_THROTTLED => throw CartException::resetThrottled(),
             default => false,
         };
     }
@@ -157,9 +157,9 @@ class UserResolver {
 
         return match ($status) {
             Password::PASSWORD_RESET => true,
-            Password::INVALID_USER => throw AuthenticationException::invalidUser(),
-            Password::INVALID_TOKEN => throw AuthenticationException::invalidToken(),
-            Password::RESET_THROTTLED => throw AuthenticationException::resetThrottled(),
+            Password::INVALID_USER => throw CartException::invalidUser(),
+            Password::INVALID_TOKEN => throw CartException::invalidToken(),
+            Password::RESET_THROTTLED => throw CartException::resetThrottled(),
             default => false,
         };
     }
