@@ -2,6 +2,9 @@
 Important Note: In Development, Not Ready for Production
 This GraphQL package is currently in development and is not intended for use in production environments. It is recommended to use this library for testing and development purposes only.
 
+[Want to see the development of the module live? Follow me on youtube]([https://link-url-here.org](https://www.youtube.com/channel/UCoYVGCi7CCOE2RueMjPl4_w))
+
+
 ### Description
 The Lunargraphql is GraphQL package provides features for integrating GraphQL into LunarPHP based projects. However, please note that the package is still in active development and may undergo significant changes before the release of a stable version.
 
