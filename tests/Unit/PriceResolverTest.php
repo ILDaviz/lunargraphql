@@ -4,7 +4,7 @@ use Lunar\Core\Models\Price;
 use Lunargraphql\GraphQL\Resolvers\PriceResolver;
 
 it('formats prices correctly through PriceResolver', function () {
-    $resolver = new PriceResolver();
+    $resolver = new PriceResolver;
 
     $price = new Price([
         'price' => 1999, // 19.99 EUR
@@ -27,7 +27,7 @@ it('formats prices correctly through PriceResolver', function () {
 });
 
 it('handles null list price correctly in PriceResolver', function () {
-    $resolver = new PriceResolver();
+    $resolver = new PriceResolver;
 
     $price = new Price([
         'price' => 5000,

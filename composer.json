@@ -46,12 +46,16 @@
     "scripts": {
         "test": [
             "vendor/bin/pest"
+        ],
+        "pint": [
+            "vendor/bin/pint"
         ]
     },
     "require-dev": {
         "orchestra/testbench": "^10.0",
         "pestphp/pest": "^3.0",
-        "pestphp/pest-plugin-laravel": "^3.0"
+        "pestphp/pest-plugin-laravel": "^3.0",
+        "laravel/pint": "^1.32"
     },
     "config": {
         "allow-plugins": {

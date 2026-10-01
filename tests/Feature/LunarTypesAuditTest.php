@@ -1,15 +1,11 @@
 <?php
 
-use Lunar\Core\Models\Address;
 use Lunar\Core\Models\Brand;
-use Lunar\Core\Models\Cart;
 use Lunar\Core\Models\Currency;
 use Lunar\Core\Models\Discount;
-use Lunar\Core\Models\Order;
 use Lunar\Core\Models\Product;
 use Lunar\Core\Models\ProductOption;
 use Lunar\Core\Models\ProductVariant;
-use Lunar\Core\Models\TaxZone;
 
 it('verifies all updated types.graphql fields resolve correctly', function () {
     $currency = Currency::getDefault();

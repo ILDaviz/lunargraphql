@@ -6,6 +6,10 @@ extend type Mutation {
         cartID: ID @globalId(decode: ID)
     ): Order!
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@createOrderFromCart")
+    @throttle(
+        maxAttempts: 30
+        decayMinutes: 1
+    )
 
     """
     Record a payment transaction against an order
@@ -24,9 +28,34 @@ extend type Mutation {
         meta: String
     ): Transaction!
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@recordOrderTransactionMutation")
+    @throttle(
+        maxAttempts: 30
+        decayMinutes: 1
+    )
+
+    """
+    Initiate payment intent or session for cart or order
+    """
+    initiatePayment(
+        cartId: ID @globalId(decode: ID)
+        orderId: ID @globalId(decode: ID)
+        provider: String = "stripe"
+        meta: String
+    ): PaymentIntentResponse!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@initiatePaymentMutation")
+    @throttle(
+        maxAttempts: 30
+        decayMinutes: 1
+    )
 }
 
 extend type Query {
+    """
+    Get configured payment providers
+    """
+    paymentProviders: [PaymentProvider!]!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@paymentProvidersQuery")
+
     """
     Get an order by ID or reference
     """

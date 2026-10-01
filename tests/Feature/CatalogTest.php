@@ -3,14 +3,12 @@
 use Lunar\Core\Models\Brand;
 use Lunar\Core\Models\Collection;
 use Lunar\Core\Models\CollectionGroup;
-use Lunar\Core\Models\Currency;
 use Lunar\Core\Models\Price;
 use Lunar\Core\Models\Product;
 use Lunar\Core\Models\ProductOption;
 use Lunar\Core\Models\ProductOptionValue;
 use Lunar\Core\Models\ProductType;
 use Lunar\Core\Models\ProductVariant;
-use Lunar\Core\Models\TaxClass;
 
 beforeEach(function () {
     $this->productType = ProductType::firstOrCreate(['handle' => 'default-type'], [
@@ -388,4 +386,3 @@ it('can query catalog with null or empty filter without error', function () {
 
     $responseEmpty->assertStatus(200);
 });
-

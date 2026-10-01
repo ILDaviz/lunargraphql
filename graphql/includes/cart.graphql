@@ -1,20 +1,25 @@
 extend type Query {
     """
-    Get the current session cart or create a new one
+    Get the cart (by optional cartId, or session cart, or creates a new one)
     """
-    getCart: Cart!
+    getCart(
+        cartId: ID @globalId(decode: ID)
+    ): Cart!
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@getCartQuery")
 
     """
     Get available shipping options for the current cart
     """
-    shippingOptions: [ShippingOption!]!
+    shippingOptions(
+        cartId: ID @globalId(decode: ID)
+    ): [ShippingOption!]!
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@getShippingOptionsQuery")
 
     """
     Get estimated shipping options for arbitrary destination before full address entry
     """
     estimateShipping(
+        cartId: ID @globalId(decode: ID)
         countryId: ID
         country: String
         state: String
@@ -28,6 +33,7 @@ extend type Mutation {
     Change the currency of the current cart
     """
     setCartCurrency(
+        cartId: ID @globalId(decode: ID)
         currencyCode: String!
     ): Cart!
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@setCartCurrencyMutation")
@@ -35,6 +41,7 @@ extend type Mutation {
     Add or update a product variant in the cart
     """
     addProductVariantToCart(
+        cartId: ID @globalId(decode: ID)
         productVariantID: ID!
         quantity: Int = 1
         meta: String
@@ -45,6 +52,7 @@ extend type Mutation {
     Update a specific line in the cart
     """
     updateCartLine(
+        cartId: ID @globalId(decode: ID)
         cartLineID: ID!
         quantity: Int!
         meta: String
@@ -55,6 +63,7 @@ extend type Mutation {
     Remove a specific line from the cart
     """
     removeCartLine(
+        cartId: ID @globalId(decode: ID)
         cartLineID: ID!
     ): Cart!
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@removeCartLineMutation")
@@ -62,13 +71,16 @@ extend type Mutation {
     """
     Clear all items from the cart
     """
-    clearCart: Cart!
+    clearCart(
+        cartId: ID @globalId(decode: ID)
+    ): Cart!
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@clearCartMutation")
 
     """
     Set shipping address on the cart
     """
     setCartShippingAddress(
+        cartId: ID @globalId(decode: ID)
         address: CartAddressInput!
     ): Cart!
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@setCartShippingAddressMutation")
@@ -77,14 +89,37 @@ extend type Mutation {
     Set billing address on the cart
     """
     setCartBillingAddress(
+        cartId: ID @globalId(decode: ID)
         address: CartAddressInput!
     ): Cart!
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@setCartBillingAddressMutation")
 
     """
+    Set shipping address on the cart from an existing customer address
+    """
+    setCartCustomerShippingAddress(
+        cartId: ID @globalId(decode: ID)
+        customerAddressId: ID! @globalId(decode: ID)
+        shippingOption: String
+    ): Cart!
+    @guard
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@setCartCustomerShippingAddressMutation")
+
+    """
+    Set billing address on the cart from an existing customer address
+    """
+    setCartCustomerBillingAddress(
+        cartId: ID @globalId(decode: ID)
+        customerAddressId: ID! @globalId(decode: ID)
+    ): Cart!
+    @guard
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@setCartCustomerBillingAddressMutation")
+
+    """
     Apply a coupon code to the cart
     """
     applyCouponToCart(
+        cartId: ID @globalId(decode: ID)
         coupon: String!
     ): Cart!
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@applyCouponToCartMutation")
@@ -92,13 +127,16 @@ extend type Mutation {
     """
     Remove the currently applied coupon from the cart
     """
-    removeCouponFromCart: Cart!
+    removeCouponFromCart(
+        cartId: ID @globalId(decode: ID)
+    ): Cart!
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@removeCouponFromCartMutation")
 
     """
     Select shipping option for the cart
     """
     setCartShippingOption(
+        cartId: ID @globalId(decode: ID)
         shippingOption: String!
     ): Cart!
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@setCartShippingOptionMutation")
@@ -106,7 +144,9 @@ extend type Mutation {
     """
     Force calculate cart totals and taxes
     """
-    calculateCart: Cart!
+    calculateCart(
+        cartId: ID @globalId(decode: ID)
+    ): Cart!
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@calculateCartMutation")
 }
 
@@ -127,4 +167,5 @@ input CartAddressInput {
     contactPhone: String
     deliveryInstructions: String
     shippingOption: String
+    saveAddress: Boolean
 }

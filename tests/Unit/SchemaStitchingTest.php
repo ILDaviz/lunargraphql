@@ -6,7 +6,7 @@ use Nuwave\Lighthouse\Events\RegisterDirectiveNamespaces;
 
 it('registers directive namespaces event listener', function () {
     $dispatcher = app(Dispatcher::class);
-    $results = (array) $dispatcher->dispatch(new RegisterDirectiveNamespaces());
+    $results = (array) $dispatcher->dispatch(new RegisterDirectiveNamespaces);
 
     expect($results)->toContain('Lunargraphql\\GraphQL\\Directives');
 });
@@ -28,7 +28,7 @@ it('stitches package schema safely into user schema without duplicate Query type
     $stitched = implode(PHP_EOL, $results);
 
     // Stitched string should not define type Query as root because userSchema already has it
-    expect($stitched)->not->toContain('type Query' . PHP_EOL)
+    expect($stitched)->not->toContain('type Query'.PHP_EOL)
         ->and($stitched)->toContain('extend type Query')
         ->and($stitched)->toContain('type Product')
         ->and($stitched)->toContain('type Cart');

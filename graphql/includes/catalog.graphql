@@ -4,25 +4,25 @@ extend type Query {
     """
     catalog(
         filter: CatalogFilterInput
-        @builder(method: "Lunargraphql\\GraphQL\\Builders\\CatalogBuilder@filterCatalog")
     ): [Product!]!
+    @builder(method: "Lunargraphql\\GraphQL\\Builders\\CatalogBuilder@filterCatalog")
     @paginate(model: "Lunar\\Core\\Models\\Product", defaultCount: 20, maxCount: 100)
 
     """
     Get a single product by ID
     """
     product(
-        id: ID! @eq @globalId(decode: ID)
+        id: ID! @globalId(decode: ID)
     ): Product
-    @find(model: "Lunar\\Core\\Models\\Product")
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CatalogResolver@productQuery")
 
     """
     Get a product variant by ID
     """
     productVariant(
-        id: ID! @eq @globalId(decode: ID)
+        id: ID! @globalId(decode: ID)
     ): ProductVariant
-    @find(model: "Lunar\\Core\\Models\\ProductVariant")
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CatalogResolver@productVariantQuery")
 
     """
     Get a list of attributes that can be used to filter the catalog
@@ -329,11 +329,14 @@ input CatalogFilterInput {
     collections: [ID!]
     brands: [ID!]
     search: String
+    status: String
     filters: [FilterInput!]
     priceRange: PriceRangeInput
     prices: PriceRangeInput
     options: [ID!]
     optionValues: [ID!]
+    sortBy: String
+    sortDir: String
 }
 
 input FilterInput {

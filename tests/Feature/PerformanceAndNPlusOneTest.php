@@ -2,11 +2,12 @@
 
 use Illuminate\Support\Facades\DB;
 use Lunar\Core\Models\Currency;
+use Lunar\Core\Models\Order;
 use Lunar\Core\Models\Price;
 use Lunar\Core\Models\Product;
 use Lunar\Core\Models\ProductVariant;
+use Lunar\Core\ValueObjects\Cart\TaxBreakdown;
 use Lunargraphql\Tests\Models\User;
-use Lunar\Core\Models\Order;
 
 it('avoids N+1 queries when querying product catalog with prices and media', function () {
     $currency = Currency::getDefault();
@@ -117,7 +118,7 @@ it('avoids N+1 queries when querying user orders with lines and formatting', fun
             'discount_total' => 0,
             'tax_total' => 0,
             'total' => 5000,
-            'tax_breakdown' => new \Lunar\Core\ValueObjects\Cart\TaxBreakdown(),
+            'tax_breakdown' => new TaxBreakdown,
         ]);
     }
 

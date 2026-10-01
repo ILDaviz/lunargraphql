@@ -4,7 +4,8 @@ use Lunar\Core\Models\Channel;
 use Lunargraphql\GraphQL\GlobalId\SmartGlobalId;
 use Lunargraphql\Traits\WithGlobalID;
 
-$dummyClass = new class {
+$dummyClass = new class
+{
     use WithGlobalID;
 };
 
@@ -60,7 +61,7 @@ it('can retrieve model by global ID or public_id', function () use ($dummyClass)
 });
 
 it('smart global id handles relay, colon, and raw IDs correctly', function () {
-    $smart = new SmartGlobalId();
+    $smart = new SmartGlobalId;
 
     $encoded = $smart->encode('Order', 123);
     expect($encoded)->toBe(base64_encode('Order:123'));

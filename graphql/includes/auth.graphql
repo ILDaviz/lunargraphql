@@ -1,26 +1,35 @@
 extend type Mutation {
     """
-    Create a new user and associate with customer if provided
+    Create a new user and automatically initialize customer account
     """
     createUser(
         name: String!
         email: String!
         password: String!
-        customerID: ID @globalId(decode: ID)
+        cartId: ID @globalId(decode: ID)
     ): LoginResponse
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\UserResolver@createUser")
+    @throttle(
+        maxAttempts: 10
+        decayMinutes: 1
+    )
 
     """
-    Login a user
+    Login a user and optionally merge/associate guest cart
     """
     login(
         email: String!
         password: String!
+        cartId: ID @globalId(decode: ID)
     ): LoginResponse
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\UserResolver@login")
+    @throttle(
+        maxAttempts: 10
+        decayMinutes: 1
+    )
 
     """
-    Logout a user and revoke tokens
+    Logout a user and revoke current access token
     """
     logout: Boolean
     @guard
@@ -30,7 +39,9 @@ extend type Mutation {
     Reset password for currently authenticated user
     """
     resetPassword(
+        currentPassword: String
         password: String!
+        passwordConfirmation: String
     ): Boolean
     @guard
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\UserResolver@resetPassword")
@@ -61,6 +72,10 @@ extend type Mutation {
         passwordConfirmation: String
     ): Boolean
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\UserResolver@resetPasswordFromToken")
+    @throttle(
+        maxAttempts: 10
+        decayMinutes: 10
+    )
 }
 
 extend type Query {

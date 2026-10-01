@@ -59,6 +59,11 @@ class CustomerAddressResolver
         throw_unless($customer, AuthenticationException::incorrectAccessData());
 
         $addressInput = Arr::get($args, 'address', []);
+        $contactEmail = Arr::get($addressInput, 'contactEmail');
+        if ($contactEmail !== null && ! filter_var(trim($contactEmail), FILTER_VALIDATE_EMAIL)) {
+            throw new CartException(CartException::trans('invalid_contact_email', 'Invalid contact email address provided.'), 422);
+        }
+
         $countryId = $this->extractIdFromArgs($addressInput, 'countryId');
 
         if (! $countryId && isset($addressInput['country'])) {
@@ -81,7 +86,7 @@ class CustomerAddressResolver
             'state' => Arr::get($addressInput, 'state'),
             'postcode' => Arr::get($addressInput, 'postcode'),
             'delivery_instructions' => Arr::get($addressInput, 'deliveryInstructions'),
-            'contact_email' => Arr::get($addressInput, 'contactEmail'),
+            'contact_email' => $contactEmail,
             'contact_phone' => Arr::get($addressInput, 'contactPhone'),
             'shipping_default' => (bool) Arr::get($addressInput, 'shippingDefault', false),
             'billing_default' => (bool) Arr::get($addressInput, 'billingDefault', false),
@@ -106,10 +111,21 @@ class CustomerAddressResolver
         $addressId = $this->extractIdFromArgs($args, 'id');
         $address = $customer->addresses()->find($addressId);
 
-        throw_unless($address, new \Exception('Address not found'));
+        throw_unless($address, new CartException(CartException::trans('address_not_found', 'Address not found'), 404));
 
         $addressInput = Arr::get($args, 'address', []);
+        $contactEmail = Arr::get($addressInput, 'contactEmail', $address->contact_email);
+        if ($contactEmail !== null && ! filter_var(trim($contactEmail), FILTER_VALIDATE_EMAIL)) {
+            throw new CartException(CartException::trans('invalid_contact_email', 'Invalid contact email address provided.'), 422);
+        }
+
         $countryId = $this->extractIdFromArgs($addressInput, 'countryId');
+        if (! $countryId && isset($addressInput['country'])) {
+            $country = Country::where('iso2', $addressInput['country'])
+                ->orWhere('iso3', $addressInput['country'])
+                ->first();
+            $countryId = $country?->id;
+        }
 
         $data = [
             'title' => Arr::get($addressInput, 'title', $address->title),
@@ -123,7 +139,7 @@ class CustomerAddressResolver
             'state' => Arr::get($addressInput, 'state', $address->state),
             'postcode' => Arr::get($addressInput, 'postcode', $address->postcode),
             'delivery_instructions' => Arr::get($addressInput, 'deliveryInstructions', $address->delivery_instructions),
-            'contact_email' => Arr::get($addressInput, 'contactEmail', $address->contact_email),
+            'contact_email' => $contactEmail,
             'contact_phone' => Arr::get($addressInput, 'contactPhone', $address->contact_phone),
         ];
 
@@ -162,7 +178,24 @@ class CustomerAddressResolver
             return false;
         }
 
+        $wasShippingDefault = (bool) $address->shipping_default;
+        $wasBillingDefault = (bool) $address->billing_default;
+
         $address->delete();
+
+        if ($wasShippingDefault) {
+            $next = $customer->addresses()->first();
+            if ($next) {
+                $next->update(['shipping_default' => true]);
+            }
+        }
+
+        if ($wasBillingDefault) {
+            $next = $customer->addresses()->first();
+            if ($next) {
+                $next->update(['billing_default' => true]);
+            }
+        }
 
         return true;
     }
@@ -177,7 +210,7 @@ class CustomerAddressResolver
 
         /** @var Address|null $address */
         $address = $customer->addresses()->find($addressId);
-        throw_unless($address, new \Exception('Address not found'));
+        throw_unless($address, new CartException('Address not found', 404));
 
         if ($type === 'SHIPPING' || $type === 'BOTH') {
             $customer->addresses()->update(['shipping_default' => false]);
@@ -222,6 +255,7 @@ class CustomerAddressResolver
                 'last_name' => $nameParts[1] ?? '',
             ]);
             $user->customers()->attach($customer);
+
             return $customer;
         }
 
@@ -236,6 +270,7 @@ class CustomerAddressResolver
         }
 
         $id = $this->extractIdFromArgs($args, 'id');
+
         return $customer->addresses()->find($id);
     }
 

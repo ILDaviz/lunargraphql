@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
+use Lunar\Core\Facades\CartSession;
+use Lunar\Core\Models\Cart;
 use Lunar\Core\Models\Customer;
 use Lunargraphql\Exceptions\AuthenticationException;
 use Lunargraphql\Traits\UseLunargraphqlUsers;
@@ -17,14 +19,21 @@ class UserResolver
     use UseLunargraphqlUsers, WithGlobalID;
 
     /**
-     * Create a new user and associate it with a customer if exists or requested.
+     * Create a new user and associate it with a customer record.
      */
     public function createUser(mixed $_, array $args): array
     {
-        $name = Arr::get($args, 'name');
-        $email = Arr::get($args, 'email');
-        $password = Arr::get($args, 'password');
-        $customerInput = Arr::get($args, 'customerID');
+        $name = trim((string) Arr::get($args, 'name'));
+        $email = trim((string) Arr::get($args, 'email'));
+        $password = (string) Arr::get($args, 'password');
+
+        if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw AuthenticationException::invalidEmail();
+        }
+
+        if (strlen($password) < 8) {
+            throw AuthenticationException::weakPassword();
+        }
 
         $userModel = $this->getUserModel();
 
@@ -38,15 +47,8 @@ class UserResolver
             'password' => Hash::make($password),
         ]);
 
-        if ($customerInput) {
-            $customerId = $this->extractIdFromArgs(['id' => $customerInput], 'id');
-            $customer = Customer::query()->find($customerId);
-
-            if ($customer && method_exists($user, 'customers')) {
-                $user->customers()->attach($customer);
-            }
-        } elseif (method_exists($user, 'customers')) {
-            // Automatically create a default customer record for the new user if none provided
+        if (method_exists($user, 'customers')) {
+            // Automatically initialize a dedicated customer profile for the newly registered user
             $nameParts = explode(' ', (string) $name, 2);
             $customer = Customer::create([
                 'first_name' => $nameParts[0] ?? $name,
@@ -54,6 +56,9 @@ class UserResolver
             ]);
             $user->customers()->attach($customer);
         }
+
+        // Merge or associate guest cart if passed or present in session
+        $this->associateCartWithUser($user, $args);
 
         $tokenName = Str::uuid()->toString();
         $token = method_exists($user, 'createToken')
@@ -71,20 +76,23 @@ class UserResolver
      */
     public function login(mixed $_, array $args): array
     {
-        $email = Arr::get($args, 'email');
-        $password = Arr::get($args, 'password');
+        $email = trim((string) Arr::get($args, 'email'));
+        $password = (string) Arr::get($args, 'password');
+
+        if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw AuthenticationException::invalidEmail();
+        }
 
         $user = $this->getUserModel()
             ->where('email', $email)
             ->first();
 
-        if (! $user) {
-            throw AuthenticationException::userNotFound();
+        if (! $user || ! Hash::check($password, $user->password)) {
+            throw AuthenticationException::incorrectAccessData();
         }
 
-        if (! Hash::check($password, $user->password)) {
-            throw AuthenticationException::passwordIncorrect();
-        }
+        // Merge or associate guest cart if passed or present in session
+        $this->associateCartWithUser($user, $args);
 
         $tokenName = Str::uuid()->toString();
         $token = method_exists($user, 'createToken')
@@ -104,8 +112,16 @@ class UserResolver
     {
         $user = Auth::guard('sanctum')->user() ?? Auth::user();
 
-        if ($user && method_exists($user, 'tokens')) {
-            $user->tokens()->delete();
+        if ($user) {
+            if (method_exists($user, 'currentAccessToken') && $user->currentAccessToken()) {
+                $user->currentAccessToken()->delete();
+            } elseif (method_exists($user, 'tokens')) {
+                $user->tokens()->delete();
+            }
+
+            if (Auth::guard('web')->check()) {
+                Auth::guard('web')->logout();
+            }
         }
 
         return true;
@@ -130,12 +146,26 @@ class UserResolver
      */
     public function resetPassword(mixed $_, array $args): bool
     {
-        $password = Arr::get($args, 'password');
-
         $user = Auth::guard('sanctum')->user() ?? Auth::user();
 
         if (! $user) {
             throw AuthenticationException::incorrectAccessData();
+        }
+
+        $currentPassword = Arr::get($args, 'currentPassword') ?? Arr::get($args, 'current_password');
+        if ($currentPassword !== null && ! Hash::check($currentPassword, $user->password)) {
+            throw AuthenticationException::passwordIncorrect();
+        }
+
+        $password = (string) Arr::get($args, 'password');
+        $confirmation = Arr::get($args, 'passwordConfirmation') ?? Arr::get($args, 'password_confirmation');
+
+        if ($confirmation !== null && $confirmation !== $password) {
+            throw AuthenticationException::passwordConfirmationMismatch();
+        }
+
+        if (strlen($password) < 8) {
+            throw AuthenticationException::weakPassword();
         }
 
         $user->password = Hash::make($password);
@@ -156,7 +186,7 @@ class UserResolver
 
         return match ($status) {
             Password::RESET_LINK_SENT => true,
-            Password::INVALID_USER => throw AuthenticationException::invalidUser(),
+            Password::INVALID_USER => true, // Return generic true to prevent user enumeration
             Password::RESET_THROTTLED => throw AuthenticationException::resetThrottled(),
             default => false,
         };
@@ -170,9 +200,25 @@ class UserResolver
         $broker = $this->getUserAuthProvider();
 
         $email = Arr::get($args, 'email');
-        $password = Arr::get($args, 'password');
-        $passwordConfirmation = Arr::get($args, 'password_confirmation', $password);
+        $password = (string) Arr::get($args, 'password');
+        $passwordConfirmation = Arr::get($args, 'passwordConfirmation') ?? Arr::get($args, 'password_confirmation', $password);
         $token = Arr::get($args, 'token');
+
+        if (empty($email) || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw AuthenticationException::invalidEmail();
+        }
+
+        if (empty($token)) {
+            throw AuthenticationException::invalidToken();
+        }
+
+        if ($passwordConfirmation !== $password) {
+            throw AuthenticationException::passwordConfirmationMismatch();
+        }
+
+        if (strlen($password) < 8) {
+            throw AuthenticationException::weakPassword();
+        }
 
         $status = Password::broker($broker)->reset(
             [
@@ -210,14 +256,54 @@ class UserResolver
             throw AuthenticationException::incorrectAccessData();
         }
 
+        $email = Arr::get($args, 'email');
+        if ($email !== null) {
+            $email = trim((string) $email);
+            if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                throw AuthenticationException::invalidEmail();
+            }
+
+            if ($email !== $user->email && $this->getUserModel()->where('email', $email)->where('id', '!=', $user->id)->exists()) {
+                throw AuthenticationException::emailAlreadyInUse();
+            }
+        }
+
         $data = array_filter([
             'name' => Arr::get($args, 'name'),
-            'email' => Arr::get($args, 'email'),
+            'email' => $email,
         ], fn ($v) => $v !== null);
 
         $user->update($data);
 
         return $user->refresh();
+    }
+
+    protected function associateCartWithUser(mixed $user, array $args): void
+    {
+        $cartId = $this->extractIdFromArgs($args, 'cartId') ?? $this->extractIdFromArgs($args, 'cartID');
+
+        /** @var Cart|null $cart */
+        $cart = $cartId ? Cart::find($cartId) : CartSession::current();
+
+        if (! $cart) {
+            return;
+        }
+
+        // Prevent taking over another user's cart
+        if ($cart->user_id !== null && (int) $cart->user_id !== (int) $user->id) {
+            return;
+        }
+
+        try {
+            if (method_exists(CartSession::class, 'associate')) {
+                CartSession::associate($cart, $user, 'merge');
+            } else {
+                $cart->user_id = $user->id;
+                $cart->save();
+            }
+        } catch (\Throwable) {
+            // Cart merge or association is non-fatal to login/registration
+        }
     }
 
     public function resolveLatestCustomer(mixed $user, array $args): ?Customer

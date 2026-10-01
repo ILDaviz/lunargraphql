@@ -2,6 +2,7 @@
 
 namespace Lunargraphql\Tests;
 
+use GraphQL\Error\DebugFlag;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\SanctumServiceProvider;
@@ -14,26 +15,44 @@ use Lunar\Core\Models\Language;
 use Lunar\Core\Models\Region;
 use Lunar\Core\Models\TaxClass;
 use Lunar\Core\Models\TaxZone;
+use Lunar\Nestedset\NestedSetServiceProvider;
 use Lunargraphql\LunargraphqlServiceProvider;
 use Lunargraphql\Tests\Models\User;
+use Nuwave\Lighthouse\Async\AsyncServiceProvider;
+use Nuwave\Lighthouse\Auth\AuthServiceProvider;
+use Nuwave\Lighthouse\Bind\BindServiceProvider;
+use Nuwave\Lighthouse\Cache\CacheServiceProvider;
+use Nuwave\Lighthouse\GlobalId\GlobalIdServiceProvider;
 use Nuwave\Lighthouse\LighthouseServiceProvider;
+use Nuwave\Lighthouse\OrderBy\OrderByServiceProvider;
+use Nuwave\Lighthouse\Pagination\PaginationServiceProvider;
+use Nuwave\Lighthouse\SoftDeletes\SoftDeletesServiceProvider;
 use Nuwave\Lighthouse\Testing\MakesGraphQLRequests;
+use Nuwave\Lighthouse\Testing\TestingServiceProvider;
+use Nuwave\Lighthouse\Validation\ValidationServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
 use Spatie\Activitylog\ActivitylogServiceProvider;
 use Spatie\LaravelBlink\BlinkServiceProvider;
 use Spatie\MediaLibrary\MediaLibraryServiceProvider;
+use Spatie\ModelStates\ModelStatesServiceProvider;
 use Spatie\Permission\PermissionServiceProvider;
 
 class TestCase extends Orchestra
 {
-    use RefreshDatabase, MakesGraphQLRequests;
+    use MakesGraphQLRequests, RefreshDatabase;
 
     protected Channel $defaultChannel;
+
     protected Currency $defaultCurrency;
+
     protected Language $defaultLanguage;
+
     protected TaxClass $defaultTaxClass;
+
     protected TaxZone $defaultTaxZone;
+
     protected Region $defaultRegion;
+
     protected Country $defaultCountry;
 
     protected function setUp(): void
@@ -46,20 +65,20 @@ class TestCase extends Orchestra
     protected function getPackageProviders($app): array
     {
         return [
-            \Lunar\Nestedset\NestedSetServiceProvider::class,
-            \Spatie\ModelStates\ModelStatesServiceProvider::class,
+            NestedSetServiceProvider::class,
+            ModelStatesServiceProvider::class,
             LunarServiceProvider::class,
             LighthouseServiceProvider::class,
-            \Nuwave\Lighthouse\Async\AsyncServiceProvider::class,
-            \Nuwave\Lighthouse\Auth\AuthServiceProvider::class,
-            \Nuwave\Lighthouse\Bind\BindServiceProvider::class,
-            \Nuwave\Lighthouse\Cache\CacheServiceProvider::class,
-            \Nuwave\Lighthouse\GlobalId\GlobalIdServiceProvider::class,
-            \Nuwave\Lighthouse\OrderBy\OrderByServiceProvider::class,
-            \Nuwave\Lighthouse\Pagination\PaginationServiceProvider::class,
-            \Nuwave\Lighthouse\SoftDeletes\SoftDeletesServiceProvider::class,
-            \Nuwave\Lighthouse\Testing\TestingServiceProvider::class,
-            \Nuwave\Lighthouse\Validation\ValidationServiceProvider::class,
+            AsyncServiceProvider::class,
+            AuthServiceProvider::class,
+            BindServiceProvider::class,
+            CacheServiceProvider::class,
+            GlobalIdServiceProvider::class,
+            OrderByServiceProvider::class,
+            PaginationServiceProvider::class,
+            SoftDeletesServiceProvider::class,
+            TestingServiceProvider::class,
+            ValidationServiceProvider::class,
             SanctumServiceProvider::class,
             MediaLibraryServiceProvider::class,
             ActivitylogServiceProvider::class,
@@ -99,7 +118,7 @@ class TestCase extends Orchestra
             'Nuwave\\Lighthouse\\Schema\\Directives',
         ]);
         $app['config']->set('app.debug', true);
-        $app['config']->set('lighthouse.debug', \GraphQL\Error\DebugFlag::INCLUDE_DEBUG_MESSAGE | \GraphQL\Error\DebugFlag::INCLUDE_TRACE);
+        $app['config']->set('lighthouse.debug', DebugFlag::INCLUDE_DEBUG_MESSAGE | DebugFlag::INCLUDE_TRACE);
         $app['config']->set('lighthouse.schema_cache.enable', false);
     }
 

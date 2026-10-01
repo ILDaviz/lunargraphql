@@ -70,9 +70,14 @@ class CommonResolver
 
     public function getFilterableAttributesQuery(mixed $model, array $args): Collection
     {
+        $productMorph = (new Product)->getMorphClass();
+
         return Attribute::query()
-            ->where('attribute_type', Product::class)
             ->where('filterable', true)
+            ->whereHas('models', function ($query) use ($productMorph) {
+                $query->where('model_type', $productMorph)
+                    ->orWhere('model_type', Product::class);
+            })
             ->get();
     }
 
@@ -192,6 +197,10 @@ class CommonResolver
             return $status->name();
         }
 
+        if (is_object($status) && method_exists($status, '__toString')) {
+            return (string) $status;
+        }
+
         return (string) ($status ?? '');
     }
 
@@ -199,7 +208,15 @@ class CommonResolver
     {
         $status = $model->payment_status;
 
-        return $status instanceof \BackedEnum ? $status->value : (string) ($status ?? '');
+        if ($status instanceof \BackedEnum) {
+            return $status->value;
+        }
+
+        if (is_object($status) && method_exists($status, '__toString')) {
+            return (string) $status;
+        }
+
+        return (string) ($status ?? '');
     }
 
     public function fulfilmentStatusField(Model $model): ?string
@@ -231,6 +248,7 @@ class CommonResolver
             $tracking = $model->relationLoaded('trackings')
                 ? $model->trackings->first()
                 : $model->trackings()->first();
+
             return $tracking?->tracking_number;
         }
 
@@ -247,6 +265,7 @@ class CommonResolver
             $tracking = $model->relationLoaded('trackings')
                 ? $model->trackings->first()
                 : $model->trackings()->first();
+
             return $tracking?->tracking_url;
         }
 

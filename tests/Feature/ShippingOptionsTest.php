@@ -2,7 +2,6 @@
 
 use Lunar\Core\DataObjects\PriceValue;
 use Lunar\Core\DataTypes\ShippingOption;
-use Lunar\Core\Facades\CartSession;
 use Lunar\Core\Facades\ShippingManifest;
 use Lunar\Core\Models\Cart;
 use Lunar\Core\Models\Product;

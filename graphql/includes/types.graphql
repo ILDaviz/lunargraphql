@@ -35,7 +35,7 @@ type Product {
     @morphToMany
     prices: [Price!]!
     @hasManyThrough
-    price: Price
+    price(currency: String): Price
     @with(relation: "prices.currency")
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\PriceResolver@resolveProductPrice")
     hasVariants: Boolean!
@@ -122,7 +122,7 @@ type ProductVariant {
     @hasMany(relation: "basePrices")
     priceBreaks: [Price!]!
     @hasMany(relation: "priceBreaks")
-    price: Price
+    price(currency: String): Price
     @with(relation: "basePrices.currency")
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\PriceResolver@resolveVariantPrice")
     thumbnail: Image
@@ -255,6 +255,12 @@ type Collection {
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CatalogResolver@resolveImages")
     products: [Product!]!
     @belongsToMany(relation: "products")
+    paginatedProducts(
+        first: Int = 12
+        page: Int
+        filter: CatalogFilterInput
+    ): [Product!]!
+    @paginate(builder: "Lunargraphql\\GraphQL\\Builders\\CatalogBuilder@resolveCollectionProducts", defaultCount: 12, maxCount: 100)
     customerGroups: [CustomerGroup!]!
     @belongsToMany(relation: "customerGroups")
     attributeData: [AttributeData!]!
@@ -1002,7 +1008,7 @@ type LoginResponse {
 type Image {
     id: ID!
     @globalId
-    url: String!
+    url(conversion: String): String!
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CatalogResolver@resolveImageUrl")
     thumbnailUrl: String
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CatalogResolver@resolveImageThumbnailUrl")
@@ -1103,4 +1109,22 @@ type TaxBreakdownAmount {
     priceFormatted: String!
     priceDecimal: Float!
 }
+
+type PaymentIntentResponse {
+    success: Boolean!
+    clientSecret: String
+    orderId: ID
+    status: String
+    requiresAction: Boolean!
+    redirectUrl: String
+    meta: String
+}
+
+type PaymentProvider {
+    handle: String!
+    name: String!
+    driver: String!
+    enabled: Boolean!
+}
+
 

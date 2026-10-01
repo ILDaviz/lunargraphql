@@ -137,7 +137,7 @@ it('can query an order by ID', function () {
 
     $order = $cart->createOrder();
 
-    $response = $this->graphQL(/** @lang GraphQL */ '
+    $response = $this->actingAs($this->user, 'sanctum')->graphQL(/** @lang GraphQL */ '
         query ($id: ID!) {
             order(id: $id) {
                 id
@@ -157,6 +157,45 @@ it('can query an order by ID', function () {
             ],
         ],
     ]);
+});
+
+it('prevents unauthorized access to another user order', function () {
+    $attacker = User::create([
+        'name' => 'Evil Attacker',
+        'email' => 'evil@example.com',
+        'password' => bcrypt('password123'),
+    ]);
+
+    $cart = Cart::create([
+        'currency_id' => $this->defaultCurrency->id,
+        'channel_id' => $this->defaultChannel->id,
+        'region_id' => $this->defaultRegion->id,
+        'user_id' => $this->user->id,
+    ]);
+
+    $cart->add($this->variant, 1);
+    $cart->setBillingAddress([
+        'country_id' => $this->defaultCountry->id,
+        'first_name' => 'John',
+        'last_name' => 'Doe',
+        'line_one' => '123 Tech Lane',
+        'city' => 'Milan',
+        'postcode' => '20100',
+    ]);
+
+    $order = $cart->createOrder();
+
+    $response = $this->actingAs($attacker, 'sanctum')->graphQL(/** @lang GraphQL */ '
+        query ($id: ID!) {
+            order(id: $id) {
+                id
+            }
+        }
+    ', [
+        'id' => $order->id,
+    ]);
+
+    expect($response->json('errors'))->not->toBeNull();
 });
 
 it('can query authenticated user orders via myOrders', function () {

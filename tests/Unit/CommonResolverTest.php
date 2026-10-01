@@ -1,12 +1,13 @@
 <?php
 
+use Illuminate\Database\Eloquent\Model;
 use Lunar\Core\Enums\SellingPolicy;
 use Lunar\Core\Models\Product;
 use Lunar\Core\Models\ProductType;
 use Lunargraphql\GraphQL\Resolvers\CommonResolver;
 
 it('handles product translatable fields and translations list in CommonResolver', function () {
-    $resolver = new CommonResolver();
+    $resolver = new CommonResolver;
 
     $productType = ProductType::create(['name' => 'Test Type']);
     $product = Product::create([
@@ -39,13 +40,18 @@ it('handles product translatable fields and translations list in CommonResolver'
 });
 
 it('resolves sellingPolicy and status enums correctly in CommonResolver', function () {
-    $resolver = new CommonResolver();
+    $resolver = new CommonResolver;
 
-    $dummyModel = new class extends \Illuminate\Database\Eloquent\Model {
+    $dummyModel = new class extends Model
+    {
         public $selling_policy = SellingPolicy::Always;
+
         public $status = 'awaiting-payment';
+
         public $payment_status = 'pending';
+
         public $fulfilment_status = 'unfulfilled';
+
         public $meta = ['color' => 'blue', 'size' => 'M'];
     };
 

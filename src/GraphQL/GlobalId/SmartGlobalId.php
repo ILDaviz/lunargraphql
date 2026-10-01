@@ -36,6 +36,7 @@ class SmartGlobalId implements GlobalId
         // 2. Unencoded colon separated, e.g. "Product:1"
         if (str_contains($globalID, ':')) {
             $parts = explode(':', $globalID, 2);
+
             return [$parts[0], $parts[1]];
         }
 

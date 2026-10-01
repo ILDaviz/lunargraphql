@@ -1,0 +1,50 @@
+<?php
+
+return [
+    // Cart & Checkout
+    'product_variant_not_found' => 'Product variant not found',
+    'cart_not_found' => 'Cart not found',
+    'cart_line_not_found' => 'Cart line not found',
+    'order_creation_failed' => 'Unable to create order from cart',
+    'order_creation_already_in_progress' => 'Order creation is already in progress for this cart.',
+    'cart_already_ordered' => 'This cart has already been converted into an order and cannot be modified.',
+    'cart_empty' => 'Cannot checkout an empty cart',
+    'invalid_shipping_address' => 'A valid shipping address is required',
+    'invalid_billing_address' => 'A valid billing address is required',
+    'invalid_address' => 'A valid :type address is required',
+    'address_not_found' => 'Address not found',
+    'invalid_contact_email' => 'Invalid contact email address provided.',
+    'not_purchasable' => 'This product variant is currently not available for purchase.',
+    'insufficient_stock' => 'Insufficient stock available for this product variant.',
+    'coupon_required' => 'A valid coupon code is required.',
+    'coupon_invalid' => 'The coupon code provided is expired or has reached its usage limit.',
+    'currency_disabled' => 'The specified currency does not exist or is disabled.',
+    'currency_not_found_or_disabled' => 'Currency :code not found or is disabled.',
+    'shipping_address_required_for_shipping_option' => 'A shipping address is required before selecting a shipping option.',
+    'shipping_option_invalid' => 'The selected shipping option is not available.',
+    'cart_cannot_ship' => 'This cart cannot be shipped.',
+    'cart_already_associated' => 'Cannot associate cart: cart is already assigned to another user.',
+
+    // Authentication & Customer
+    'incorrect_access_data' => 'Incorrect access data',
+    'type_model_not_found' => 'Type model not found',
+    'invalid_user' => 'Invalid user',
+    'invalid_token' => 'Invalid token',
+    'reset_throttled' => 'Reset throttled',
+    'user_already_exists' => 'User already exists',
+    'user_not_found' => 'User not found',
+    'password_incorrect' => 'Password is incorrect',
+    'password_confirmation_mismatch' => 'Password confirmation does not match',
+    'invalid_email' => 'Invalid email address',
+    'weak_password' => 'Password must be at least 8 characters long',
+    'email_already_in_use' => 'This email address is already in use',
+    'unauthorized' => 'This action is unauthorized',
+    'order_unauthorized' => 'You are not authorized to access this order.',
+    'order_authentication_required' => 'Authentication is required to access this order.',
+
+    // Orders & Transactions
+    'order_not_found' => 'Order not found',
+    'invalid_amount' => 'Transaction amount must be greater than zero.',
+    'already_paid' => 'Order has already been paid in full.',
+    'amount_exceeds_total' => 'Transaction amount cannot exceed order total.',
+];

@@ -4,17 +4,12 @@ namespace Lunargraphql\Traits;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Str;
 use Nuwave\Lighthouse\GlobalId\Base64GlobalId;
-use Nuwave\Lighthouse\GlobalId\GlobalIdException;
 
 trait WithGlobalID
 {
     /**
      * Decode the global ID.
-     *
-     * @param string $globalId
-     * @return array
      */
     public function decodeGlobalId(string $globalId): array
     {
@@ -32,10 +27,6 @@ trait WithGlobalID
 
     /**
      * Encode the global ID.
-     *
-     * @param string $type
-     * @param string|int $id
-     * @return string
      */
     public function encodeGlobalId(string $type, string|int $id): string
     {
@@ -44,10 +35,6 @@ trait WithGlobalID
 
     /**
      * Extract the raw ID from a field value (which could be an array from Lighthouse, a base64 string, or a raw id).
-     *
-     * @param array $args
-     * @param string $fieldName
-     * @return string|int|null
      */
     public function extractIdFromArgs(array $args, string $fieldName): string|int|null
     {
@@ -77,11 +64,6 @@ trait WithGlobalID
 
     /**
      * Get the model from the global ID or direct ID / public_id.
-     *
-     * @param array $args
-     * @param string $fieldName
-     * @param string $typeClass
-     * @return Model|null
      */
     public function getModelFromGlobalId(array $args, string $fieldName, string $typeClass): ?Model
     {

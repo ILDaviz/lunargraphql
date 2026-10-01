@@ -11,7 +11,7 @@ use Lunargraphql\Traits\LunarUser;
 
 class User extends Authenticatable implements LunarUserContract
 {
-    use HasApiTokens, HasFactory, Notifiable, LunarUser;
+    use HasApiTokens, HasFactory, LunarUser, Notifiable;
 
     protected $guarded = [];
 

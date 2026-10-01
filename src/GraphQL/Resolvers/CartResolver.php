@@ -4,14 +4,18 @@ namespace Lunargraphql\GraphQL\Resolvers;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Lunar\Core\Contracts\Actions\Carts\SetsShippingOption;
 use Lunar\Core\Facades\CartSession;
+use Lunar\Core\Facades\Discounts;
 use Lunar\Core\Facades\ShippingManifest;
 use Lunar\Core\Models\Cart;
 use Lunar\Core\Models\Channel;
 use Lunar\Core\Models\Country;
 use Lunar\Core\Models\Currency;
+use Lunar\Core\Models\Customer;
+use Lunar\Core\Models\Discount;
 use Lunar\Core\Models\ProductVariant;
 use Lunar\Core\Models\Region;
 use Lunargraphql\Exceptions\CartException;
@@ -24,6 +28,34 @@ class CartResolver
 
     public function getCartQuery(mixed $model, array $args): Cart
     {
+        return $this->resolveCart($args);
+    }
+
+    public function resolveCart(array $args = []): Cart
+    {
+        $cartId = $this->extractIdFromArgs($args, 'cartId') ?? $this->extractIdFromArgs($args, 'cartID');
+        $user = $this->getUserLoggedIn();
+
+        if ($cartId) {
+            /** @var Cart|null $cart */
+            $cart = Cart::with(config('lunar.cart.eager_load', []))->find($cartId);
+            if ($cart) {
+                if ($cart->user_id && (! $user || (int) $cart->user_id !== (int) $user->id)) {
+                    throw CartException::cartNotFound();
+                }
+                if ($user && ! $cart->user_id) {
+                    $cart->user_id = $user->id;
+                    $cart->save();
+                }
+                try {
+                    $cart->calculate();
+                } catch (Throwable) {
+                }
+
+                return $cart;
+            }
+        }
+
         $cart = CartSession::current();
         $user = $this->getUserLoggedIn();
 
@@ -47,11 +79,18 @@ class CartResolver
 
         try {
             $cart->calculate();
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // Cart calculation may fail if empty or during partial state; that's normal
         }
 
         return $cart;
+    }
+
+    protected function assertCartNotCompleted(Cart $cart): void
+    {
+        if (method_exists($cart, 'completedOrder') && $cart->completedOrder()->exists()) {
+            throw new CartException(CartException::trans('cart_already_ordered', 'This cart has already been converted into an order and cannot be modified.'), 422);
+        }
     }
 
     /**
@@ -59,13 +98,33 @@ class CartResolver
      */
     public function addProductVariantToCartMutation(mixed $model, array $args): Cart
     {
-        $cart = $this->getCartQuery(null, []);
+        $cart = $this->resolveCart($args);
+        $this->assertCartNotCompleted($cart);
 
         /** @var ProductVariant|null $productVariant */
         $productVariant = $this->getModelFromGlobalId($args, 'productVariantID', ProductVariant::class);
         $quantity = (int) Arr::get($args, 'quantity', 1);
 
         throw_unless($productVariant, CartException::productVariantNotFound());
+
+        // Validate purchasability and inventory stock limits
+        if ($quantity > 0) {
+            if (method_exists($productVariant, 'isPurchasable') && ! $productVariant->isPurchasable()) {
+                throw new CartException(CartException::trans('not_purchasable', 'This product variant is currently not available for purchase.'), 422);
+            }
+
+            if (($productVariant->selling_policy ?? null) !== 'always' && isset($productVariant->stock_available)) {
+                $existingLine = $cart->lines()->where([
+                    'purchasable_type' => $productVariant->getMorphClass(),
+                    'purchasable_id' => $productVariant->id,
+                ])->first();
+                $currentQty = $existingLine ? (int) $existingLine->quantity : 0;
+
+                if (($currentQty + $quantity) > (int) $productVariant->stock_available) {
+                    throw new CartException(CartException::trans('insufficient_stock', 'Insufficient stock available for this product variant.'), 422);
+                }
+            }
+        }
 
         $meta = Arr::get($args, 'meta');
         if (is_string($meta)) {
@@ -82,6 +141,7 @@ class CartResolver
             throw_unless($cartLine, CartException::cartLineNotFound());
 
             $cart->remove($cartLine->id);
+
             return $cart->refresh()->calculate();
         }
 
@@ -95,12 +155,27 @@ class CartResolver
      */
     public function updateCartLineMutation(mixed $model, array $args): Cart
     {
-        $cart = $this->getCartQuery(null, []);
+        $cart = $this->resolveCart($args);
+        $this->assertCartNotCompleted($cart);
+
         $lineId = $this->extractIdFromArgs($args, 'cartLineID');
         $quantity = (int) Arr::get($args, 'quantity');
 
         $cartLine = $cart->lines()->find($lineId);
         throw_unless($cartLine, CartException::cartLineNotFound());
+
+        if ($quantity > 0 && $cartLine->purchasable) {
+            $purchasable = $cartLine->purchasable;
+            if (method_exists($purchasable, 'isPurchasable') && ! $purchasable->isPurchasable()) {
+                throw new CartException(CartException::trans('not_purchasable', 'This product variant is currently not available for purchase.'), 422);
+            }
+
+            if (($purchasable->selling_policy ?? null) !== 'always' && isset($purchasable->stock_available)) {
+                if ($quantity > (int) $purchasable->stock_available) {
+                    throw new CartException(CartException::trans('insufficient_stock', 'Insufficient stock available for this product variant.'), 422);
+                }
+            }
+        }
 
         $meta = Arr::get($args, 'meta');
         if (is_string($meta)) {
@@ -123,7 +198,9 @@ class CartResolver
      */
     public function removeCartLineMutation(mixed $model, array $args): Cart
     {
-        $cart = $this->getCartQuery(null, []);
+        $cart = $this->resolveCart($args);
+        $this->assertCartNotCompleted($cart);
+
         $lineId = $this->extractIdFromArgs($args, 'cartLineID');
 
         $cartLine = $cart->lines()->find($lineId);
@@ -136,7 +213,9 @@ class CartResolver
 
     public function clearCartMutation(mixed $model, array $args): Cart
     {
-        $cart = $this->getCartQuery(null, []);
+        $cart = $this->resolveCart($args);
+        $this->assertCartNotCompleted($cart);
+
         $cart->lines()->delete();
 
         return $cart->refresh()->calculate();
@@ -144,8 +223,15 @@ class CartResolver
 
     public function setCartShippingAddressMutation(mixed $model, array $args): Cart
     {
-        $cart = $this->getCartQuery(null, []);
+        $cart = $this->resolveCart($args);
+        $this->assertCartNotCompleted($cart);
+
         $addressInput = Arr::get($args, 'address', []);
+
+        $contactEmail = Arr::get($addressInput, 'contactEmail');
+        if ($contactEmail !== null && ! filter_var(trim($contactEmail), FILTER_VALIDATE_EMAIL)) {
+            throw new CartException(CartException::trans('invalid_contact_email', 'Invalid contact email address provided.'), 422);
+        }
 
         $countryId = $this->extractIdFromArgs($addressInput, 'countryId');
         if (! $countryId && isset($addressInput['country'])) {
@@ -167,10 +253,99 @@ class CartResolver
             'city' => Arr::get($addressInput, 'city'),
             'state' => Arr::get($addressInput, 'state'),
             'postcode' => Arr::get($addressInput, 'postcode'),
-            'contact_email' => Arr::get($addressInput, 'contactEmail'),
+            'contact_email' => $contactEmail,
             'contact_phone' => Arr::get($addressInput, 'contactPhone'),
             'delivery_instructions' => Arr::get($addressInput, 'deliveryInstructions'),
             'shipping_option' => Arr::get($addressInput, 'shippingOption'),
+        ];
+
+        $cleanData = array_filter($addressData, fn ($v) => $v !== null);
+        $cart->setShippingAddress($cleanData);
+
+        if (Arr::get($addressInput, 'saveAddress') && $user = $this->getUserLoggedIn()) {
+            $this->saveAddressToCustomerProfile($user, $cleanData, 'shipping');
+        }
+
+        return $cart->refresh()->calculate();
+    }
+
+    public function setCartBillingAddressMutation(mixed $model, array $args): Cart
+    {
+        $cart = $this->resolveCart($args);
+        $this->assertCartNotCompleted($cart);
+
+        $addressInput = Arr::get($args, 'address', []);
+
+        $contactEmail = Arr::get($addressInput, 'contactEmail');
+        if ($contactEmail !== null && ! filter_var(trim($contactEmail), FILTER_VALIDATE_EMAIL)) {
+            throw new CartException(CartException::trans('invalid_contact_email', 'Invalid contact email address provided.'), 422);
+        }
+
+        $countryId = $this->extractIdFromArgs($addressInput, 'countryId');
+        if (! $countryId && isset($addressInput['country'])) {
+            $country = Country::where('iso2', $addressInput['country'])
+                ->orWhere('iso3', $addressInput['country'])
+                ->first();
+            $countryId = $country?->id;
+        }
+
+        $addressData = [
+            'country_id' => $countryId,
+            'title' => Arr::get($addressInput, 'title'),
+            'first_name' => Arr::get($addressInput, 'firstName'),
+            'last_name' => Arr::get($addressInput, 'lastName'),
+            'company_name' => Arr::get($addressInput, 'companyName'),
+            'line_one' => Arr::get($addressInput, 'lineOne'),
+            'line_two' => Arr::get($addressInput, 'lineTwo'),
+            'line_three' => Arr::get($addressInput, 'lineThree'),
+            'city' => Arr::get($addressInput, 'city'),
+            'state' => Arr::get($addressInput, 'state'),
+            'postcode' => Arr::get($addressInput, 'postcode'),
+            'contact_email' => $contactEmail,
+            'contact_phone' => Arr::get($addressInput, 'contactPhone'),
+        ];
+
+        $cleanData = array_filter($addressData, fn ($v) => $v !== null);
+        $cart->setBillingAddress($cleanData);
+
+        if (Arr::get($addressInput, 'saveAddress') && $user = $this->getUserLoggedIn()) {
+            $this->saveAddressToCustomerProfile($user, $cleanData, 'billing');
+        }
+
+        return $cart->refresh()->calculate();
+    }
+
+    public function setCartCustomerShippingAddressMutation(mixed $model, array $args): Cart
+    {
+        $cart = $this->resolveCart($args);
+        $this->assertCartNotCompleted($cart);
+
+        $user = $this->getUserLoggedIn();
+        throw_unless($user, new CartException('Authentication required to use saved customer address.', 401));
+
+        $customer = $this->getCustomerFromUser($user);
+        throw_unless($customer, new CartException('Customer profile not found.', 404));
+
+        $addressId = $this->extractIdFromArgs($args, 'customerAddressId') ?? $this->extractIdFromArgs($args, 'addressId');
+        $customerAddress = $customer->addresses()->find($addressId);
+        throw_unless($customerAddress, new CartException('Customer address not found or not owned by the authenticated customer.', 404));
+
+        $addressData = [
+            'country_id' => $customerAddress->country_id,
+            'title' => $customerAddress->title,
+            'first_name' => $customerAddress->first_name,
+            'last_name' => $customerAddress->last_name,
+            'company_name' => $customerAddress->company_name,
+            'line_one' => $customerAddress->line_one,
+            'line_two' => $customerAddress->line_two,
+            'line_three' => $customerAddress->line_three,
+            'city' => $customerAddress->city,
+            'state' => $customerAddress->state,
+            'postcode' => $customerAddress->postcode,
+            'contact_email' => $customerAddress->contact_email,
+            'contact_phone' => $customerAddress->contact_phone,
+            'delivery_instructions' => $customerAddress->delivery_instructions,
+            'shipping_option' => Arr::get($args, 'shippingOption'),
         ];
 
         $cart->setShippingAddress(array_filter($addressData, fn ($v) => $v !== null));
@@ -178,33 +353,35 @@ class CartResolver
         return $cart->refresh()->calculate();
     }
 
-    public function setCartBillingAddressMutation(mixed $model, array $args): Cart
+    public function setCartCustomerBillingAddressMutation(mixed $model, array $args): Cart
     {
-        $cart = $this->getCartQuery(null, []);
-        $addressInput = Arr::get($args, 'address', []);
+        $cart = $this->resolveCart($args);
+        $this->assertCartNotCompleted($cart);
 
-        $countryId = $this->extractIdFromArgs($addressInput, 'countryId');
-        if (! $countryId && isset($addressInput['country'])) {
-            $country = Country::where('iso2', $addressInput['country'])
-                ->orWhere('iso3', $addressInput['country'])
-                ->first();
-            $countryId = $country?->id;
-        }
+        $user = $this->getUserLoggedIn();
+        throw_unless($user, new CartException('Authentication required to use saved customer address.', 401));
+
+        $customer = $this->getCustomerFromUser($user);
+        throw_unless($customer, new CartException('Customer profile not found.', 404));
+
+        $addressId = $this->extractIdFromArgs($args, 'customerAddressId') ?? $this->extractIdFromArgs($args, 'addressId');
+        $customerAddress = $customer->addresses()->find($addressId);
+        throw_unless($customerAddress, new CartException('Customer address not found or not owned by the authenticated customer.', 404));
 
         $addressData = [
-            'country_id' => $countryId,
-            'title' => Arr::get($addressInput, 'title'),
-            'first_name' => Arr::get($addressInput, 'firstName'),
-            'last_name' => Arr::get($addressInput, 'lastName'),
-            'company_name' => Arr::get($addressInput, 'companyName'),
-            'line_one' => Arr::get($addressInput, 'lineOne'),
-            'line_two' => Arr::get($addressInput, 'lineTwo'),
-            'line_three' => Arr::get($addressInput, 'lineThree'),
-            'city' => Arr::get($addressInput, 'city'),
-            'state' => Arr::get($addressInput, 'state'),
-            'postcode' => Arr::get($addressInput, 'postcode'),
-            'contact_email' => Arr::get($addressInput, 'contactEmail'),
-            'contact_phone' => Arr::get($addressInput, 'contactPhone'),
+            'country_id' => $customerAddress->country_id,
+            'title' => $customerAddress->title,
+            'first_name' => $customerAddress->first_name,
+            'last_name' => $customerAddress->last_name,
+            'company_name' => $customerAddress->company_name,
+            'line_one' => $customerAddress->line_one,
+            'line_two' => $customerAddress->line_two,
+            'line_three' => $customerAddress->line_three,
+            'city' => $customerAddress->city,
+            'state' => $customerAddress->state,
+            'postcode' => $customerAddress->postcode,
+            'contact_email' => $customerAddress->contact_email,
+            'contact_phone' => $customerAddress->contact_phone,
         ];
 
         $cart->setBillingAddress(array_filter($addressData, fn ($v) => $v !== null));
@@ -214,8 +391,20 @@ class CartResolver
 
     public function applyCouponToCartMutation(mixed $model, array $args): Cart
     {
-        $cart = $this->getCartQuery(null, []);
-        $coupon = Arr::get($args, 'coupon');
+        $cart = $this->resolveCart($args);
+        $this->assertCartNotCompleted($cart);
+
+        $coupon = trim((string) Arr::get($args, 'coupon'));
+        if (empty($coupon)) {
+            throw new CartException(CartException::trans('coupon_required', 'A valid coupon code is required.'), 422);
+        }
+
+        if (class_exists(Discounts::class)) {
+            $discount = Discount::where('coupon', strtoupper($coupon))->first();
+            if ($discount && ! Discounts::validateCoupon($coupon)) {
+                throw new CartException(CartException::trans('coupon_invalid', 'The coupon code provided is expired or has reached its usage limit.'), 422);
+            }
+        }
 
         $cart->coupon_code = $coupon;
         $cart->save();
@@ -225,7 +414,9 @@ class CartResolver
 
     public function removeCouponFromCartMutation(mixed $model, array $args): Cart
     {
-        $cart = $this->getCartQuery(null, []);
+        $cart = $this->resolveCart($args);
+        $this->assertCartNotCompleted($cart);
+
         $cart->coupon_code = null;
         $cart->save();
 
@@ -234,14 +425,47 @@ class CartResolver
 
     public function calculateCartMutation(mixed $model, array $args): Cart
     {
-        $cart = $this->getCartQuery(null, []);
+        $cart = $this->resolveCart($args);
 
         return $cart->recalculate();
     }
 
-    public function getShippingOptionsQuery(mixed $model, array $args): \Illuminate\Support\Collection
+    protected function getCustomerFromUser(mixed $user): ?Customer
     {
-        $cart = $this->getCartQuery(null, []);
+        if (method_exists($user, 'latestCustomer') && $user->latestCustomer()) {
+            return $user->latestCustomer();
+        }
+
+        if (method_exists($user, 'customers') && $user->customers()->exists()) {
+            return $user->customers()->first();
+        }
+
+        return null;
+    }
+
+    protected function saveAddressToCustomerProfile(mixed $user, array $data, string $type = 'shipping'): void
+    {
+        try {
+            $customer = $this->getCustomerFromUser($user);
+            if (! $customer) {
+                return;
+            }
+
+            unset($data['shipping_option']);
+            if ($type === 'shipping') {
+                $data['shipping_default'] = ! $customer->addresses()->where('shipping_default', true)->exists();
+            } else {
+                $data['billing_default'] = ! $customer->addresses()->where('billing_default', true)->exists();
+            }
+
+            $customer->addresses()->create($data);
+        } catch (Throwable) {
+        }
+    }
+
+    public function getShippingOptionsQuery(mixed $model, array $args): Collection
+    {
+        $cart = $this->resolveCart($args);
 
         if (! $cart->isShippable()) {
             return collect();
@@ -266,7 +490,7 @@ class CartResolver
 
     public function setCartShippingOptionMutation(mixed $model, array $args): Cart
     {
-        $cart = $this->getCartQuery(null, []);
+        $cart = $this->resolveCart($args);
         $optionIdentifier = Arr::get($args, 'shippingOption');
 
         $shippingAddress = $cart->shippingAddress;
@@ -290,60 +514,70 @@ class CartResolver
     public function resolveSubTotal(Cart $cart, array $args): ?int
     {
         $this->ensureCalculated($cart);
+
         return $cart->subTotal?->value;
     }
 
     public function resolveSubTotalFormatted(Cart $cart, array $args): ?string
     {
         $this->ensureCalculated($cart);
+
         return $cart->subTotal?->format();
     }
 
     public function resolveTaxTotal(Cart $cart, array $args): ?int
     {
         $this->ensureCalculated($cart);
+
         return $cart->taxTotal?->value;
     }
 
     public function resolveTaxTotalFormatted(Cart $cart, array $args): ?string
     {
         $this->ensureCalculated($cart);
+
         return $cart->taxTotal?->format();
     }
 
     public function resolveDiscountTotal(Cart $cart, array $args): ?int
     {
         $this->ensureCalculated($cart);
+
         return $cart->discountTotal?->value;
     }
 
     public function resolveDiscountTotalFormatted(Cart $cart, array $args): ?string
     {
         $this->ensureCalculated($cart);
+
         return $cart->discountTotal?->format();
     }
 
     public function resolveShippingTotal(Cart $cart, array $args): ?int
     {
         $this->ensureCalculated($cart);
+
         return $cart->shippingTotal?->value;
     }
 
     public function resolveShippingTotalFormatted(Cart $cart, array $args): ?string
     {
         $this->ensureCalculated($cart);
+
         return $cart->shippingTotal?->format();
     }
 
     public function resolveTotal(Cart $cart, array $args): ?int
     {
         $this->ensureCalculated($cart);
+
         return $cart->total?->value;
     }
 
     public function resolveTotalFormatted(Cart $cart, array $args): ?string
     {
         $this->ensureCalculated($cart);
+
         return $cart->total?->format();
     }
 
@@ -352,42 +586,49 @@ class CartResolver
     public function resolveLines(Cart $cart): iterable
     {
         $this->ensureCalculated($cart);
+
         return $cart->lines;
     }
 
     public function resolveLineSubTotal($cartLine, array $args): ?int
     {
         $this->ensureLineCalculated($cartLine);
+
         return $cartLine->subTotal?->value;
     }
 
     public function resolveLineSubTotalFormatted($cartLine, array $args): ?string
     {
         $this->ensureLineCalculated($cartLine);
+
         return $cartLine->subTotal?->format();
     }
 
     public function resolveLineTotal($cartLine, array $args): ?int
     {
         $this->ensureLineCalculated($cartLine);
+
         return $cartLine->total?->value;
     }
 
     public function resolveLineTotalFormatted($cartLine, array $args): ?string
     {
         $this->ensureLineCalculated($cartLine);
+
         return $cartLine->total?->format();
     }
 
     public function resolveLineUnitPrice($cartLine, array $args): ?int
     {
         $this->ensureLineCalculated($cartLine);
+
         return $cartLine->unitPrice?->value;
     }
 
     public function resolveLineUnitPriceFormatted($cartLine, array $args): ?string
     {
         $this->ensureLineCalculated($cartLine);
+
         return $cartLine->unitPrice?->format();
     }
 
@@ -410,10 +651,12 @@ class CartResolver
 
     public function setCartCurrencyMutation(mixed $model, array $args): Cart
     {
-        $cart = $this->getCartQuery(null, []);
+        $cart = $this->resolveCart($args);
+        $this->assertCartNotCompleted($cart);
+
         $code = Arr::get($args, 'currencyCode');
-        $currency = Currency::where('code', $code)->first();
-        throw_unless($currency, new CartException("Currency {$code} not found."));
+        $currency = Currency::where('code', $code)->where('enabled', true)->first();
+        throw_unless($currency, new CartException(CartException::trans('currency_not_found_or_disabled', "Currency {$code} not found or is disabled.", ['code' => $code])));
 
         $cart->currency_id = $currency->id;
         $cart->save();
@@ -422,9 +665,9 @@ class CartResolver
         return $cart->refresh()->calculate();
     }
 
-    public function estimateShippingQuery(mixed $model, array $args): \Illuminate\Support\Collection
+    public function estimateShippingQuery(mixed $model, array $args): Collection
     {
-        $cart = $this->getCartQuery(null, []);
+        $cart = $this->resolveCart($args);
 
         if (! $cart->isShippable()) {
             return collect();
@@ -476,36 +719,42 @@ class CartResolver
     public function resolveSubTotalDiscounted(Cart $cart): ?int
     {
         $this->ensureCalculated($cart);
+
         return $cart->subTotalDiscounted?->value;
     }
 
     public function resolveSubTotalDiscountedFormatted(Cart $cart): ?string
     {
         $this->ensureCalculated($cart);
+
         return $cart->subTotalDiscounted?->format();
     }
 
     public function resolveShippingSubTotal(Cart $cart): ?int
     {
         $this->ensureCalculated($cart);
+
         return $cart->shippingSubTotal?->value;
     }
 
     public function resolveShippingSubTotalFormatted(Cart $cart): ?string
     {
         $this->ensureCalculated($cart);
+
         return $cart->shippingSubTotal?->format();
     }
 
     public function resolveShippingTaxTotal(Cart $cart): ?int
     {
         $this->ensureCalculated($cart);
+
         return $cart->shippingTaxTotal?->value;
     }
 
     public function resolveShippingTaxTotalFormatted(Cart $cart): ?string
     {
         $this->ensureCalculated($cart);
+
         return $cart->shippingTaxTotal?->format();
     }
 
@@ -541,6 +790,7 @@ class CartResolver
 
         return $breakdown->map(function ($item) {
             $price = $item->price ?? $item->total ?? null;
+
             return [
                 'discount' => $item->discount ?? null,
                 'name' => $item->discount?->name ?? 'Discount',
@@ -556,7 +806,7 @@ class CartResolver
         if (! $cart->isCalculated()) {
             try {
                 $cart->calculate();
-            } catch (\Throwable) {
+            } catch (Throwable) {
                 // Ignore calculation errors during view
             }
         }

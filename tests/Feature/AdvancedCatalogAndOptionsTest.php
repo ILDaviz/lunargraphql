@@ -2,7 +2,6 @@
 
 use Lunar\Core\Models\Channel;
 use Lunar\Core\Models\CollectionGroup;
-use Lunar\Core\Models\Country;
 use Lunar\Core\Models\Currency;
 use Lunar\Core\Models\CustomerGroup;
 use Lunar\Core\Models\Discount;
@@ -15,8 +14,6 @@ use Lunar\Core\Models\ProductType;
 use Lunar\Core\Models\ProductVariant;
 use Lunar\Core\Models\Region;
 use Lunar\Core\Models\Tag;
-use Lunar\Core\Models\TaxClass;
-use Lunar\Core\Models\TaxZone;
 
 it('can query product with options and direct price', function () {
     $product = Product::factory()->create([

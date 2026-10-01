@@ -2,9 +2,9 @@
 
 namespace Lunargraphql\GraphQL\Resolvers;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Lunar\Core\Models\Brand;
 use Lunar\Core\Models\Channel;
 use Lunar\Core\Models\Collection as LunarCollection;
@@ -19,6 +19,59 @@ use Lunargraphql\Traits\WithGlobalID;
 class CatalogResolver
 {
     use WithGlobalID;
+
+    public function productQuery(mixed $root, array $args): ?Product
+    {
+        $id = $this->extractIdFromArgs($args, 'id');
+        if (! $id) {
+            return null;
+        }
+
+        /** @var Product|null $product */
+        $product = is_numeric($id)
+            ? Product::find($id)
+            : Product::where('public_id', $id)->first();
+
+        if (! $product) {
+            return null;
+        }
+
+        $status = is_object($product->status) ? (string) $product->status : $product->status;
+        if ($status !== 'published') {
+            $user = Auth::guard('sanctum')->user() ?? Auth::user();
+            if (! $user) {
+                return null;
+            }
+        }
+
+        return $product;
+    }
+
+    public function productVariantQuery(mixed $root, array $args): ?ProductVariant
+    {
+        $id = $this->extractIdFromArgs($args, 'id');
+        if (! $id) {
+            return null;
+        }
+
+        /** @var ProductVariant|null $variant */
+        $variant = is_numeric($id)
+            ? ProductVariant::find($id)
+            : ProductVariant::where('public_id', $id)->first();
+
+        if (! $variant) {
+            return null;
+        }
+
+        if (! $variant->enabled) {
+            $user = Auth::guard('sanctum')->user() ?? Auth::user();
+            if (! $user) {
+                return null;
+            }
+        }
+
+        return $variant;
+    }
 
     public function productBySlug(mixed $root, array $args): ?Product
     {
@@ -37,7 +90,19 @@ class CatalogResolver
             })
             ->first();
 
-        return $url?->element instanceof Product ? $url->element : null;
+        $product = $url?->element instanceof Product ? $url->element : null;
+
+        if ($product) {
+            $status = is_object($product->status) ? (string) $product->status : $product->status;
+            if ($status !== 'published') {
+                $user = Auth::guard('sanctum')->user() ?? Auth::user();
+                if (! $user) {
+                    return null;
+                }
+            }
+        }
+
+        return $product;
     }
 
     public function collectionBySlug(mixed $root, array $args): ?LunarCollection
@@ -150,9 +215,18 @@ class CatalogResolver
         return [];
     }
 
-    public function resolveImageUrl(mixed $media): string
+    public function resolveImageUrl(mixed $media, array $args = []): string
     {
+        $conversion = Arr::get($args, 'conversion');
+
         if (is_object($media) && method_exists($media, 'getUrl')) {
+            try {
+                if ($conversion && method_exists($media, 'hasGeneratedConversion') && $media->hasGeneratedConversion($conversion)) {
+                    return $media->getUrl($conversion);
+                }
+            } catch (\Throwable) {
+            }
+
             return $media->getUrl();
         }
 

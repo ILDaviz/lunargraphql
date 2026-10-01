@@ -8,6 +8,7 @@ use GraphQL\Error\ProvidesExtensions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Lang;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class ApplicationException extends Exception implements ClientAware, ProvidesExtensions
@@ -54,5 +55,12 @@ class ApplicationException extends Exception implements ClientAware, ProvidesExt
         return [
             //
         ];
+    }
+
+    public static function trans(string $key, string $fallback, array $replace = []): string
+    {
+        return Lang::has("lunargraphql::errors.{$key}")
+            ? (string) __("lunargraphql::errors.{$key}", $replace)
+            : $fallback;
     }
 }

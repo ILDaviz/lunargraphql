@@ -3,7 +3,10 @@
 namespace Lunargraphql;
 
 use Illuminate\Contracts\Events\Dispatcher;
+use Lunargraphql\GraphQL\GlobalId\SmartGlobalId;
 use Nuwave\Lighthouse\Events\BuildSchemaString;
+use Nuwave\Lighthouse\Events\RegisterDirectiveNamespaces;
+use Nuwave\Lighthouse\GlobalId\GlobalId;
 use Nuwave\Lighthouse\Schema\Source\SchemaStitcher;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
@@ -20,14 +23,15 @@ class LunargraphqlServiceProvider extends PackageServiceProvider
             ->hasConfigFile([
                 'lunargraphql',
                 'lighthouse',
-            ]);
+            ])
+            ->hasTranslations();
     }
 
     public function packageRegistered(): void
     {
         $this->app->singleton(
-            \Nuwave\Lighthouse\GlobalId\GlobalId::class,
-            \Lunargraphql\GraphQL\GlobalId\SmartGlobalId::class
+            GlobalId::class,
+            SmartGlobalId::class
         );
     }
 
@@ -44,7 +48,7 @@ class LunargraphqlServiceProvider extends PackageServiceProvider
         $events = $this->app->make(Dispatcher::class);
 
         // Register custom directives namespace
-        $events->listen(\Nuwave\Lighthouse\Events\RegisterDirectiveNamespaces::class, static function (): string {
+        $events->listen(RegisterDirectiveNamespaces::class, static function (): string {
             return 'Lunargraphql\\GraphQL\\Directives';
         });
 

@@ -1,10 +1,11 @@
 <?php
 
-use Lunar\Core\Models\Cart;
+use Lunar\Core\Models\Location;
 use Lunar\Core\Models\Order;
 use Lunar\Core\Models\Product;
 use Lunar\Core\Models\ProductType;
 use Lunar\Core\Models\ProductVariant;
+use Lunar\Core\ValueObjects\Cart\TaxBreakdown;
 
 beforeEach(function () {
     $this->productType = ProductType::firstOrCreate(['handle' => 'default-type'], [
@@ -39,7 +40,7 @@ beforeEach(function () {
         'shipping_total' => 500,
         'tax_total' => 1100,
         'total' => 6600,
-        'tax_breakdown' => new \Lunar\Core\ValueObjects\Cart\TaxBreakdown(),
+        'tax_breakdown' => new TaxBreakdown,
         'reference' => 'ORD-REF-777',
         'customer_reference' => 'CUST-REF-888',
     ]);
@@ -142,7 +143,7 @@ it('can record a payment transaction on an order and query transactions', functi
 });
 
 it('can query fulfilments relation on order', function () {
-    $location = \Lunar\Core\Models\Location::firstOrCreate(['handle' => 'main-warehouse'], [
+    $location = Location::firstOrCreate(['handle' => 'main-warehouse'], [
         'name' => 'Main Warehouse',
         'default' => true,
     ]);

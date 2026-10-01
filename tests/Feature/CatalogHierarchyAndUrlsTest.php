@@ -7,7 +7,6 @@ use Lunar\Core\Models\Product;
 use Lunar\Core\Models\ProductType;
 use Lunar\Core\Models\ProductVariant;
 use Lunar\Core\Models\Tag;
-use Lunar\Core\Models\Url;
 
 beforeEach(function () {
     $this->productType = ProductType::firstOrCreate(['handle' => 'default-type'], [

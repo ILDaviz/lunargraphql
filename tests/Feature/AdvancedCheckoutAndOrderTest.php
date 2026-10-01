@@ -6,6 +6,7 @@ use Lunar\Core\Models\OrderLine;
 use Lunar\Core\Models\Product;
 use Lunar\Core\Models\ProductType;
 use Lunar\Core\Models\ProductVariant;
+use Lunar\Core\ValueObjects\Cart\TaxBreakdown;
 
 beforeEach(function () {
     $this->productType = ProductType::firstOrCreate(['handle' => 'order-type'], [
@@ -40,7 +41,7 @@ beforeEach(function () {
         'shipping_total' => 500,
         'tax_total' => 1100,
         'total' => 6600,
-        'tax_breakdown' => new \Lunar\Core\ValueObjects\Cart\TaxBreakdown(),
+        'tax_breakdown' => new TaxBreakdown,
         'reference' => 'ORD-GUEST-12345',
         'placed_at' => now(),
     ]);
@@ -62,7 +63,7 @@ beforeEach(function () {
         'total' => 6000,
         'requires_shipping' => true,
         'requires_fulfilment' => true,
-        'tax_breakdown' => new \Lunar\Core\ValueObjects\Cart\TaxBreakdown(),
+        'tax_breakdown' => new TaxBreakdown,
     ]);
 
     // Shipping line
@@ -80,7 +81,7 @@ beforeEach(function () {
         'total' => 600,
         'requires_shipping' => false,
         'requires_fulfilment' => false,
-        'tax_breakdown' => new \Lunar\Core\ValueObjects\Cart\TaxBreakdown(),
+        'tax_breakdown' => new TaxBreakdown,
     ]);
 
     // Order Address

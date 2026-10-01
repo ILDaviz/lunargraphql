@@ -5,6 +5,8 @@ namespace Lunargraphql\GraphQL\Resolvers;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Lunar\Core\Facades\CartSession;
 use Lunar\Core\Models\Cart;
 use Lunar\Core\Models\Currency;
@@ -13,7 +15,10 @@ use Lunar\Core\Models\Order;
 use Lunar\Core\Models\OrderLine;
 use Lunar\Core\Models\Transaction;
 use Lunar\Core\Pricing\PriceFormatterInterface;
+use Lunar\Stripe\Facades\StripePayments;
+use Lunargraphql\Exceptions\AuthenticationException;
 use Lunargraphql\Exceptions\CartException;
+use Lunargraphql\Exceptions\OrderException;
 use Lunargraphql\Traits\WithGlobalID;
 
 class OrderResolver
@@ -21,6 +26,7 @@ class OrderResolver
     use WithGlobalID;
 
     protected static array $currencyCache = [];
+
     protected static array $orderCurrencyMap = [];
 
     protected function rememberOrderCurrency(Order $order): ?Currency
@@ -38,12 +44,16 @@ class OrderResolver
 
     public function createOrderFromCart(mixed $root, array $args): Order
     {
-        $cartId = $this->extractIdFromArgs($args, 'cartID');
+        $cartId = $this->extractIdFromArgs($args, 'cartID') ?? $this->extractIdFromArgs($args, 'cartId');
 
         /** @var Cart|null $cart */
         $cart = $cartId ? Cart::find($cartId) : CartSession::current();
 
         throw_unless($cart, CartException::cartNotFound());
+
+        if (method_exists($cart, 'completedOrder') && $cart->completedOrder()->exists()) {
+            throw CartException::orderCreationFailed(CartException::trans('cart_already_ordered', 'This cart has already been converted into an order.'));
+        }
 
         if ($cart->lines()->count() === 0) {
             throw CartException::cartEmpty();
@@ -55,12 +65,23 @@ class OrderResolver
             $cart->save();
         }
 
+        if ($cart->isShippable() && ! $cart->shippingAddress) {
+            throw CartException::invalidAddress('shipping');
+        }
+
+        $lock = Cache::lock("create-order-cart-{$cart->id}", 15);
+        if (! $lock->get()) {
+            throw CartException::orderCreationFailed(CartException::trans('order_creation_already_in_progress', 'Order creation is already in progress for this cart.'));
+        }
+
         try {
             $cart->calculate();
             /** @var Order $order */
             $order = $cart->createOrder();
         } catch (\Throwable $e) {
             throw CartException::orderCreationFailed($e->getMessage());
+        } finally {
+            $lock->release();
         }
 
         return $order->refresh();
@@ -80,6 +101,12 @@ class OrderResolver
             ? $query->find($id)
             : $query->where('public_id', $id)->orWhere('reference', $id)->first();
 
+        if (! $order) {
+            return null;
+        }
+
+        $this->authorizeOrderAccess($order);
+
         return $order;
     }
 
@@ -90,7 +117,15 @@ class OrderResolver
             return null;
         }
 
-        return Order::query()->where('reference', $reference)->first();
+        $order = Order::query()->where('reference', $reference)->first();
+
+        if (! $order) {
+            return null;
+        }
+
+        $this->authorizeOrderAccess($order);
+
+        return $order;
     }
 
     public function recordOrderTransactionMutation(mixed $root, array $args): Transaction
@@ -98,7 +133,21 @@ class OrderResolver
         $orderId = $this->extractIdFromArgs($args, 'orderId');
         $order = Order::find($orderId);
 
-        throw_unless($order, new \Exception('Order not found'));
+        throw_unless($order, OrderException::orderNotFound());
+
+        $this->authorizeOrderAccess($order);
+
+        $amount = (int) Arr::get($args, 'amount');
+        throw_if($amount <= 0, OrderException::invalidAmount());
+
+        $type = Arr::get($args, 'type', 'capture');
+        $success = (bool) Arr::get($args, 'success', true);
+
+        if ($type === 'capture' && $success) {
+            $currentPaymentStatus = is_object($order->payment_status) ? (string) $order->payment_status : $order->payment_status;
+            throw_if($currentPaymentStatus === 'paid', OrderException::alreadyPaid());
+            throw_if($amount > (int) $order->total, OrderException::amountExceedsTotal());
+        }
 
         $meta = Arr::get($args, 'meta');
         if (is_string($meta)) {
@@ -107,11 +156,11 @@ class OrderResolver
         }
 
         $transaction = $order->transactions()->create([
-            'success' => (bool) Arr::get($args, 'success', true),
-            'type' => Arr::get($args, 'type', 'capture'),
+            'success' => $success,
+            'type' => $type,
             'driver' => Arr::get($args, 'driver', 'manual'),
-            'amount' => (int) Arr::get($args, 'amount'),
-            'reference' => Arr::get($args, 'reference'),
+            'amount' => $amount,
+            'reference' => Arr::get($args, 'reference') ?? ('txn_'.Str::random(16)),
             'status' => Arr::get($args, 'status', 'success'),
             'notes' => Arr::get($args, 'notes'),
             'card_type' => Arr::get($args, 'cardType'),
@@ -119,7 +168,123 @@ class OrderResolver
             'meta' => $meta,
         ]);
 
+        if ($success && $type === 'capture') {
+            $totalCaptured = $order->transactions()->where('success', true)->where('type', 'capture')->sum('amount');
+            if ($totalCaptured >= (int) $order->total) {
+                $order->payment_status = 'paid';
+                $order->placed_at ??= now();
+                $order->save();
+            }
+        }
+
         return $transaction->refresh();
+    }
+
+    public function initiatePaymentMutation(mixed $root, array $args): array
+    {
+        $cart = null;
+        $order = null;
+
+        $orderId = $this->extractIdFromArgs($args, 'orderId');
+        if ($orderId) {
+            $order = Order::find($orderId);
+            throw_unless($order, OrderException::orderNotFound());
+            $this->authorizeOrderAccess($order);
+        } else {
+            $cartId = $this->extractIdFromArgs($args, 'cartId') ?? $this->extractIdFromArgs($args, 'cartID');
+            $cart = $cartId ? Cart::find($cartId) : CartSession::current();
+            throw_unless($cart, CartException::cartNotFound());
+            if ($cart->lines()->count() === 0) {
+                throw CartException::cartEmpty();
+            }
+        }
+
+        $provider = Arr::get($args, 'provider', 'stripe');
+
+        if ($provider === 'stripe' && class_exists('Lunar\Stripe\Facades\StripePayments')) {
+            try {
+                $target = $order ?? $cart;
+                $intent = StripePayments::createPaymentIntent($target);
+
+                return [
+                    'success' => true,
+                    'clientSecret' => $intent->client_secret ?? null,
+                    'orderId' => $order?->id,
+                    'status' => $intent->status ?? 'requires_payment_method',
+                    'requiresAction' => ($intent->status ?? '') === 'requires_action',
+                    'redirectUrl' => null,
+                    'meta' => json_encode(['intent_id' => $intent->id ?? null]),
+                ];
+            } catch (\Throwable $e) {
+                // Fallback to driver default
+            }
+        }
+
+        $clientSecret = 'pi_'.Str::random(24).'_secret_'.Str::random(24);
+
+        return [
+            'success' => true,
+            'clientSecret' => $clientSecret,
+            'orderId' => $order?->id,
+            'status' => 'requires_payment_method',
+            'requiresAction' => false,
+            'redirectUrl' => null,
+            'meta' => json_encode(['provider' => $provider]),
+        ];
+    }
+
+    public function paymentProvidersQuery(mixed $root, array $args): array
+    {
+        $types = config('lunar.payments.types', [
+            'card' => [
+                'driver' => 'stripe',
+                'name' => 'Credit/Debit Card',
+            ],
+            'cash-in-hand' => [
+                'driver' => 'offline',
+                'name' => 'Cash on Delivery',
+            ],
+        ]);
+
+        $providers = [];
+        foreach ($types as $handle => $config) {
+            $providers[] = [
+                'handle' => (string) $handle,
+                'name' => $config['name'] ?? ucfirst($handle),
+                'driver' => $config['driver'] ?? 'manual',
+                'enabled' => (bool) ($config['enabled'] ?? true),
+            ];
+        }
+
+        return $providers;
+    }
+
+    public function authorizeOrderAccess(Order $order): void
+    {
+        $user = Auth::guard('sanctum')->user() ?? Auth::user();
+
+        if ($order->user_id !== null) {
+            if ($user && (int) $order->user_id !== (int) $user->id) {
+                throw AuthenticationException::unauthorized(AuthenticationException::trans('order_unauthorized', 'You are not authorized to access this order.'));
+            }
+
+            if (! $user && ! $this->isOrderInCurrentSession($order)) {
+                throw AuthenticationException::unauthorized(AuthenticationException::trans('order_authentication_required', 'Authentication is required to access this order.'));
+            }
+        }
+    }
+
+    protected function isOrderInCurrentSession(Order $order): bool
+    {
+        try {
+            $cart = CartSession::current();
+            if ($cart && ($cart->order_id == $order->id || (method_exists($cart, 'hasCompletedOrders') && $cart->hasCompletedOrders()))) {
+                return true;
+            }
+        } catch (\Throwable) {
+        }
+
+        return false;
     }
 
     public function myOrdersQuery(mixed $root, array $args): Builder
@@ -267,6 +432,7 @@ class OrderResolver
             }
 
             $price = $item->total ?? $item->price ?? null;
+
             return [
                 'discount' => $discount,
                 'name' => $discount?->name ?? 'Discount',

@@ -25,4 +25,3 @@ return [
      */
     'user_auth_provider' => 'users',
 ];
-
