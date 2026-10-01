@@ -4,3 +4,5 @@ vendor
 
 # misc
 .DS_Store
+
+e2e-test/

@@ -1,18 +1,30 @@
 {
     "name": "ildaviz/lunargraphql",
-    "description": "A PHP library to generate a graph of the Lunar",
+    "description": "GraphQL API for LunarPHP using Nuwave Lighthouse",
     "type": "library",
     "license": "MIT",
+    "keywords": [
+        "laravel",
+        "lunar",
+        "lunarphp",
+        "graphql",
+        "lighthouse",
+        "headless",
+        "ecommerce",
+        "api"
+    ],
     "authors": [
         {
             "name": "David Galet",
-            "email": "davidgalet@gmail.com"
+            "email": "davidgalet+lunargraphql@gmail.com"
         }
     ],
     "require": {
-        "lunarphp/lunar": "^0.7.2",
-        "nuwave/lighthouse": "^6.22",
-        "spatie/laravel-package-tools": "^1.16"
+        "php": "^8.2|^8.3|^8.4",
+        "lunarphp/core": "^2.0.0-alpha.6|^2.0",
+        "nuwave/lighthouse": "^6.0",
+        "spatie/laravel-package-tools": "^1.16",
+        "laravel/sanctum": "^4.0"
     },
     "autoload": {
         "psr-4": {
@@ -37,13 +49,15 @@
         ]
     },
     "require-dev": {
-        "spatie/laravel-ray": "^1.33",
-        "pestphp/pest": "^2.24",
-        "orchestra/testbench": "^8.0"
+        "orchestra/testbench": "^10.0",
+        "pestphp/pest": "^3.0",
+        "pestphp/pest-plugin-laravel": "^3.0"
     },
     "config": {
         "allow-plugins": {
             "pestphp/pest-plugin": true
         }
-    }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
 }
