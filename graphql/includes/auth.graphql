@@ -1,14 +1,12 @@
 extend type Mutation {
     """
-    Create a new user and add customerID if it exists
-    customerID is used to link a user to a customer in stripe
+    Create a new user and associate with customer if provided
     """
     createUser(
-        name: String!,
-        email: String!,
+        name: String!
+        email: String!
         password: String!
-        customerID: ID
-        @globalId(decode: ID)
+        customerID: ID @globalId(decode: ID)
     ): LoginResponse
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\UserResolver@createUser")
 
@@ -16,20 +14,20 @@ extend type Mutation {
     Login a user
     """
     login(
-        email: String!,
+        email: String!
         password: String!
     ): LoginResponse
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\UserResolver@login")
 
     """
-    Logout a user
+    Logout a user and revoke tokens
     """
     logout: Boolean
     @guard
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\UserResolver@logout")
 
     """
-    reset password
+    Reset password for currently authenticated user
     """
     resetPassword(
         password: String!
@@ -37,37 +35,39 @@ extend type Mutation {
     @guard
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\UserResolver@resetPassword")
     @throttle(
-        maxAttempts: 10,
-        decayMinutes: 10,
+        maxAttempts: 10
+        decayMinutes: 10
     )
 
-
     """
-    send reset password email
+    Send reset password email
     """
     sendResetPasswordEmail(
         email: String!
     ): Boolean
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\UserResolver@sendResetPasswordEmail")
     @throttle(
-        maxAttempts: 10,
-        decayMinutes: 10,
+        maxAttempts: 10
+        decayMinutes: 10
     )
 
     """
-    send reset password from token
+    Reset password using email token
     """
     sendResetPasswordFromToken(
         token: String!
+        email: String!
+        password: String!
+        passwordConfirmation: String
     ): Boolean
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\UserResolver@resetPasswordFromToken")
 }
 
-extend type Query @guard {
+extend type Query {
     """
-    - This api is a logged user
+    The currently authenticated user
     """
     me: User!
-    @auth
+    @guard
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\UserResolver@me")
 }
-

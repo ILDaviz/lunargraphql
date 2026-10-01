@@ -1,50 +1,74 @@
 type Product {
     id: ID!
     @globalId
+    publicId: String
+    @rename(attribute: "public_id")
     brand: Brand
     @belongsTo
     productType: ProductType
-    @belongsTo
+    @belongsTo(relation: "productType")
     status: String!
-    attributeData: [AttributeData]!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@statusField")
+    name(lang: String): String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@productNameField")
+    description(lang: String): String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@productDescriptionField")
+    shortDescription(lang: String): String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@productShortDescriptionField")
+    nameTranslations: [NameAttribute!]!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@nameTranslationsField")
+    attributeData: [AttributeData!]!
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@attributeDataField")
-    images: [Image!]!
-    @hasMany
     variants: [ProductVariant!]!
     @hasMany
+    variant: ProductVariant
+    @hasOne
     collections: [Collection!]!
-    @belongsToMany(type: PAGINATOR)
-    associations: [ProductAssociation!]!
-    @hasMany(type: PAGINATOR)
-    inverseAssociations: [ProductAssociation!]!
-    @belongsToMany(type: PAGINATOR)
-    customerGroups: [CustomerGroup]
     @belongsToMany
-    prices: [Price]
+    associations: [ProductAssociation!]!
+    @hasMany
+    inverseAssociations: [ProductAssociation!]!
+    @hasMany
+    customerGroups: [CustomerGroup!]!
+    @belongsToMany
+    channels: [Channel!]!
+    @morphToMany
+    prices: [Price!]!
     @hasManyThrough
+    price: Price
+    @with(relation: "prices.currency")
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\PriceResolver@resolveProductPrice")
+    hasVariants: Boolean!
+    @rename(attribute: "has_variants")
+    productOptions: [ProductOption!]!
+    @belongsToMany(relation: "productOptions")
+    urls: [Url!]!
+    @morphMany
+    defaultUrl: Url
+    @morphOne
+    tags: [Tag!]!
+    @morphToMany
+    thumbnail: Image
+    @with(relation: "media")
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CatalogResolver@resolveThumbnail")
+    images: [Image!]!
+    @with(relation: "media")
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CatalogResolver@resolveImages")
     createdAt: DateTimeUtc
     @rename(attribute: "created_at")
     updatedAt: DateTimeUtc
     @rename(attribute: "updated_at")
-    deletedAt: DateTimeUtc
-    @rename(attribute: "deleted_at")
 }
 
 type ProductVariant {
     id: ID!
     @globalId
-    product: Product
+    publicId: String
+    @rename(attribute: "public_id")
+    product: Product!
     @belongsTo
     taxClass: TaxClass
-    @belongsTo
-    values: [ProductVariantValue!]!
-    @belongsToMany
-    images: [Image!]!
-    @belongsToMany
-    attributeData: [AttributeData]!
-    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@attributeDataField")
-    taxRef: String
-    @rename(attribute: "tax_ref")
+    @belongsTo(relation: "taxClass")
     unitQuantity: Int!
     @rename(attribute: "unit_quantity")
     sku: String
@@ -72,27 +96,41 @@ type ProductVariant {
     volumeUnit: String
     @rename(attribute: "volume_unit")
     shippable: Boolean!
-    stock: Int!
+    requiresFulfilment: Boolean!
+    @rename(attribute: "shippable")
+    sellingPolicy: String!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@sellingPolicyField")
+    stockOnHand: Int!
+    @rename(attribute: "stock_on_hand")
+    stockAvailable: Int!
+    @rename(attribute: "stock_available")
     backorder: Int!
-    purchasable: String!
-    createdAt: DateTimeUtc
-    @rename(attribute: "created_at")
-    updatedAt: DateTimeUtc
-    @rename(attribute: "updated_at")
-    deletedAt: DateTimeUtc
-    @rename(attribute: "deleted_at")
-}
-
-type ProductVariantValue {
-    id: ID!
-    @globalId
-    name: [NameAttribute!]! # As collection
-    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@nameField")
-    position: Int!
-    option: ProductOption!
-    @belongsTo
-    variants: [ProductVariant!]!
+    minQuantity: Int
+    @rename(attribute: "min_quantity")
+    quantityIncrement: Int
+    @rename(attribute: "quantity_increment")
+    totalInventory: Int!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CatalogResolver@resolveTotalInventory")
+    enabled: Boolean!
+    isPurchasable: Boolean!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CatalogResolver@resolveIsPurchasable")
+    values: [ProductOptionValue!]!
     @belongsToMany
+    prices: [Price!]!
+    @hasMany
+    basePrices: [Price!]!
+    @hasMany(relation: "basePrices")
+    priceBreaks: [Price!]!
+    @hasMany(relation: "priceBreaks")
+    price: Price
+    @with(relation: "basePrices.currency")
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\PriceResolver@resolveVariantPrice")
+    thumbnail: Image
+    @with(relation: "images")
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CatalogResolver@resolveThumbnail")
+    images: [Image!]!
+    @with(relation: "images")
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CatalogResolver@resolveImages")
     createdAt: DateTimeUtc
     @rename(attribute: "created_at")
     updatedAt: DateTimeUtc
@@ -102,18 +140,45 @@ type ProductVariantValue {
 type ProductOption {
     id: ID!
     @globalId
-    name: String!
-    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@nameField")
-    label: String!
-    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@labelField")
-    position: Int!
+    publicId: String
+    @rename(attribute: "public_id")
+    name(lang: String): String!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@productOptionNameField")
+    nameTranslations: [NameAttribute!]!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@nameTranslationsField")
+    label(lang: String): String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@productOptionLabelField")
     handle: String
+    type: String
+    shared: Boolean!
+    values: [ProductOptionValue!]!
+    @hasMany
     createdAt: DateTimeUtc
     @rename(attribute: "created_at")
     updatedAt: DateTimeUtc
     @rename(attribute: "updated_at")
-    values: [ProductVariantValue!]!
-    @hasMany
+}
+
+type ProductOptionValue {
+    id: ID!
+    @globalId
+    publicId: String
+    @rename(attribute: "public_id")
+    name(lang: String): String!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@productOptionValueNameField")
+    nameTranslations: [NameAttribute!]!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@nameTranslationsField")
+    position: Int!
+    option: ProductOption!
+    @belongsTo(relation: "option")
+    productOption: ProductOption!
+    @belongsTo(relation: "option")
+    variants: [ProductVariant!]!
+    @belongsToMany
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
 }
 
 type ProductAssociation {
@@ -130,33 +195,74 @@ type ProductAssociation {
     @rename(attribute: "updated_at")
 }
 
-enum AssociationType {
-    CROSS_SELL @enum(value: "cross_sell")
-    UP_SELL @enum(value: "up_sell")
-    ALTERNATE @enum(value: "alternate")
+type Brand {
+    id: ID!
+    @globalId
+    name: String!
+    handle: String
+    status: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@statusField")
+    description(lang: String): String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@productDescriptionField")
+    shortDescription(lang: String): String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@productShortDescriptionField")
+    urls: [Url!]!
+    @morphMany
+    defaultUrl: Url
+    @morphOne
+    thumbnail: Image
+    @with(relation: "media")
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CatalogResolver@resolveThumbnail")
+    products: [Product!]!
+    @hasMany
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
 }
 
 type Collection {
     id: ID!
     @globalId
+    name(lang: String): String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@productNameField")
+    description(lang: String): String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@productDescriptionField")
+    shortDescription(lang: String): String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@productShortDescriptionField")
+    handle: String
     group: CollectionGroup!
+    @belongsTo(relation: "group")
+    parent: Collection
     @belongsTo
+    children: [Collection!]!
+    @hasMany
+    ancestors: [Collection!]!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CatalogResolver@resolveCollectionAncestors")
+    descendants: [Collection!]!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CatalogResolver@resolveCollectionDescendants")
+    breadcrumbs: [Collection!]!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CatalogResolver@resolveCollectionBreadcrumbs")
+    urls: [Url!]!
+    @morphMany
+    defaultUrl: Url
+    @morphOne
+    thumbnail: Image
+    @with(relation: "media")
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CatalogResolver@resolveThumbnail")
+    images: [Image!]!
+    @with(relation: "media")
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CatalogResolver@resolveImages")
     products: [Product!]!
-    @belongsToMany
+    @belongsToMany(relation: "products")
     customerGroups: [CustomerGroup!]!
-    @belongsToMany
-    type: String!
-    attributeData: [AttributeData]!
+    @belongsToMany(relation: "customerGroups")
+    attributeData: [AttributeData!]!
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@attributeDataField")
-    sort: String!
-    _lft: Int!
-    _rgt: Int!
     createdAt: DateTimeUtc
     @rename(attribute: "created_at")
     updatedAt: DateTimeUtc
     @rename(attribute: "updated_at")
-    deletedAt: DateTimeUtc
-    @rename(attribute: "deleted_at")
 }
 
 type CollectionGroup {
@@ -164,54 +270,7 @@ type CollectionGroup {
     @globalId
     name: String!
     handle: String!
-    createdAt: DateTimeUtc
-    @rename(attribute: "created_at")
-    updatedAt: DateTimeUtc
-    @rename(attribute: "updated_at")
     collections: [Collection!]!
-    @hasMany
-}
-
-type Image {
-    id: ID!
-    @globalId
-    orderColumn: Int!
-    @rename(attribute: "order_column")
-    collectionName: String!
-    @rename(attribute: "collection_name")
-    name: String!
-    fileName: String!
-    @rename(attribute: "file_name")
-    mimeType: String
-    @rename(attribute: "mime_type")
-    size: Int!
-    createdAt: DateTimeUtc
-    @rename(attribute: "created_at")
-    updatedAt: DateTimeUtc
-    @rename(attribute: "updated_at")
-    generatedConversions: GeneratedConversion
-    @rename(attribute: "generated_conversions")
-    originalUrl: String!
-    @rename(attribute: "original_url")
-}
-
-type GeneratedConversion
-{
-    zoom: Boolean
-    large: Boolean
-    small: Boolean
-    medium: Boolean
-}
-
-type Brand {
-    id: ID!
-    @globalId
-    name: String!
-    attributeData: [AttributeData!]!
-    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@attributeDataField")
-    mappedAttributes: [Attribute]
-    @morphToMany
-    products: [Product]
     @hasMany
     createdAt: DateTimeUtc
     @rename(attribute: "created_at")
@@ -223,14 +282,13 @@ type ProductType {
     id: ID!
     @globalId
     name: String!
-    mappedAttributes: [Attribute!]!
-    @morphToMany
+    handle: String!
+    status: String!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@statusField")
     products: [Product!]!
     @hasMany
-    productAttributes: [Attribute!]!
-    @morphToMany
-    variantAttributes: [Attribute!]!
-    @morphToMany
+    attributes: [Attribute!]!
+    @belongsToMany(relation: "productAttributes")
     createdAt: DateTimeUtc
     @rename(attribute: "created_at")
     updatedAt: DateTimeUtc
@@ -241,19 +299,14 @@ type Attribute {
     id: ID!
     @globalId
     attributeGroup: AttributeGroup
-    @belongsTo
+    @belongsTo(relation: "attributeGroup")
     position: Int!
     name: String!
     handle: String!
     section: String!
     type: String!
-    required: String!
-    defaultValue: String
-    @rename(attribute: "default_value")
-    configuration: String!
+    required: Boolean!
     system: Boolean!
-    validationRules: String
-    @rename(attribute: "validation_rules")
     filterable: Boolean!
     searchable: Boolean!
     createdAt: DateTimeUtc
@@ -265,43 +318,47 @@ type Attribute {
 type AttributeGroup {
     id: ID!
     @globalId
-    attributeType: String
     name: String!
     handle: String!
     position: Int!
+    attributes: [Attribute!]!
+    @hasMany
     createdAt: DateTimeUtc
     @rename(attribute: "created_at")
     updatedAt: DateTimeUtc
     @rename(attribute: "updated_at")
-    attributes: [Attribute!]!
-    @hasMany
 }
 
 type Price {
     id: ID!
     @globalId
-    price: DataTypePrice!
+    publicId: String
+    @rename(attribute: "public_id")
+    price: Int!
+    priceFormatted: String!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\PriceResolver@getPriceFormatted")
+    priceDecimal: Float!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\PriceResolver@getPriceDecimal")
+    listPrice: Int
+    @rename(attribute: "list_price")
+    listPriceFormatted: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\PriceResolver@getListPriceFormatted")
+    listPriceDecimal: Float
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\PriceResolver@getListPriceDecimal")
     priceIncTax: Int!
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\PriceResolver@getPriceIncTax")
     priceExTax: Int!
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\PriceResolver@getPriceExTax")
-    currency: Currency
+    minQuantity: Int!
+    @rename(attribute: "min_quantity")
+    currency: Currency!
     @belongsTo
     customerGroup: CustomerGroup
-    @belongsTo
-    comparePrice: Int!
-    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\PriceResolver@getComparePrice")
-    tier: Int!
+    @belongsTo(relation: "customerGroup")
     createdAt: DateTimeUtc
     @rename(attribute: "created_at")
     updatedAt: DateTimeUtc
     @rename(attribute: "updated_at")
-}
-
-type DataTypePrice{
-    value: Int!
-    currency: Currency!
-    unitQty: Int!
 }
 
 type Currency {
@@ -323,43 +380,38 @@ type Currency {
     @rename(attribute: "updated_at")
 }
 
+type Region {
+    id: ID!
+    @globalId
+    name: String!
+    handle: String!
+    default: Boolean!
+    currency: Currency
+    @belongsTo
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
+
+type Channel {
+    id: ID!
+    @globalId
+    name: String!
+    handle: String!
+    default: Boolean!
+    url: String
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
+
 type TaxClass {
     id: ID!
     @globalId
     name: String!
     default: Boolean!
-    createdAt: DateTimeUtc
-    @rename(attribute: "created_at")
-    updatedAt: DateTimeUtc
-    @rename(attribute: "updated_at")
-    taxRateAmounts: [TaxRateAmount!]!
-    @hasMany
-    productVariants: [ProductVariant!]!
-    @hasMany
-}
-
-type TaxRate {
-    id: ID!
-    @globalId
-    taxZone: TaxZone!
-    @belongsTo
-    taxRateAmounts: [TaxRateAmount!]!
-    @hasMany
-    name: String!
-    createdAt: DateTimeUtc
-    @rename(attribute: "created_at")
-    updatedAt: DateTimeUtc
-    @rename(attribute: "updated_at")
-}
-
-type TaxRateAmount {
-    id: ID!
-    @globalId
-    taxRate: TaxRate!
-    @belongsTo
-    taxClass: TaxClass!
-    @belongsTo
-    percentage: Float!
     createdAt: DateTimeUtc
     @rename(attribute: "created_at")
     updatedAt: DateTimeUtc
@@ -376,72 +428,20 @@ type TaxZone {
     @rename(attribute: "price_display")
     active: Boolean!
     default: Boolean!
-    countries: [TaxZoneCountry!]!
-    @hasMany
-    states: [TaxZoneState!]!
-    @hasMany
-    postcodes: [TaxZonePostcode!]!
-    @hasMany
-    customerGroups: [TaxZoneCustomerGroup!]!
-    @hasMany
     taxRates: [TaxRate!]!
-    @hasMany
-    taxAmounts: [TaxRateAmount!]!
-    @hasMany
+    @hasMany(relation: "taxRates")
     createdAt: DateTimeUtc
     @rename(attribute: "created_at")
     updatedAt: DateTimeUtc
     @rename(attribute: "updated_at")
 }
 
-type TaxZoneCountry {
+type TaxRate {
     id: ID!
     @globalId
+    name: String!
     taxZone: TaxZone!
-    @belongsTo
-    country: Country!
-    @belongsTo
-    createdAt: DateTimeUtc
-    @rename(attribute: "created_at")
-    updatedAt: DateTimeUtc
-    @rename(attribute: "updated_at")
-}
-
-type TaxZoneState {
-    id: ID!
-    @globalId
-    taxZone: TaxZone!
-    @belongsTo
-    state: State!
-    @belongsTo
-    createdAt: DateTimeUtc
-    @rename(attribute: "created_at")
-    updatedAt: DateTimeUtc
-    @rename(attribute: "updated_at")
-}
-
-type TaxZonePostcode {
-    id: ID!
-    @globalId
-    taxZone: TaxZone!
-    @belongsTo
-    country: Country!
-    @belongsTo
-    postcode: String!
-    @belongsTo
-    createdAt: DateTimeUtc
-    @rename(attribute: "created_at")
-    updatedAt: DateTimeUtc
-    @rename(attribute: "updated_at")
-}
-
-type TaxZoneCustomerGroup {
-    id: ID!
-    @globalId
-    taxZone: TaxZone!
-    @belongsTo
-    customerGroup: CustomerGroup!
-    @belongsTo
+    @belongsTo(relation: "taxZone")
     createdAt: DateTimeUtc
     @rename(attribute: "created_at")
     updatedAt: DateTimeUtc
@@ -454,14 +454,9 @@ type Country {
     name: String!
     iso3: String!
     iso2: String
+    phonecode: String
     states: [State!]!
     @hasMany
-    phonecode: String!
-    capital: String
-    currency: String!
-    native: String
-    emoji: String!
-    emojiU: String!
     createdAt: DateTimeUtc
     @rename(attribute: "created_at")
     updatedAt: DateTimeUtc
@@ -471,10 +466,10 @@ type Country {
 type State {
     id: ID!
     @globalId
-    country: Country!
-    @belongsTo
     name: String!
     code: String!
+    country: Country!
+    @belongsTo
     createdAt: DateTimeUtc
     @rename(attribute: "created_at")
     updatedAt: DateTimeUtc
@@ -485,8 +480,6 @@ type CustomerGroup {
     id: ID!
     @globalId
     name: String!
-    customers: [Customer!]!
-    @belongsToMany
     handle: String!
     default: Boolean!
     createdAt: DateTimeUtc
@@ -498,29 +491,31 @@ type CustomerGroup {
 type Customer {
     id: ID!
     @globalId
-    customerGroups: [CustomerGroup!]!
-    @belongsToMany
-    addresses: [Address!]!
-    @hasMany
-    orders: [Order!]!
-    @hasMany
-    mappedAttributes: [Attribute!]!
-    @morphToMany
     title: String
-    firstName: String!
+    firstName: String
     @rename(attribute: "first_name")
-    lastName: String!
+    lastName: String
     @rename(attribute: "last_name")
     companyName: String
     @rename(attribute: "company_name")
     vatNo: String
-    @rename(attribute: "vat_no")
+    @rename(attribute: "tax_identifier")
+    taxIdentifier: String
+    @rename(attribute: "tax_identifier")
     accountRef: String
     @rename(attribute: "account_ref")
-    attributeData: [AttributeData]!
-    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@attributeDataField")
-    meta: String
-    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@arrayObjectField")
+    customerGroups: [CustomerGroup!]!
+    @belongsToMany
+    addresses: [Address!]!
+    @hasMany
+    defaultShippingAddress: Address
+    @with(relation: "addresses")
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CustomerAddressResolver@resolveDefaultShippingAddress")
+    defaultBillingAddress: Address
+    @with(relation: "addresses")
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CustomerAddressResolver@resolveDefaultBillingAddress")
+    orders: [Order!]!
+    @hasMany
     createdAt: DateTimeUtc
     @rename(attribute: "created_at")
     updatedAt: DateTimeUtc
@@ -530,14 +525,14 @@ type Customer {
 type Address {
     id: ID!
     @globalId
-    customer: Customer!
+    customer: Customer
     @belongsTo
-    country: Country!
+    country: Country
     @belongsTo
     title: String
-    firstName: String!
+    firstName: String
     @rename(attribute: "first_name")
-    lastName: String!
+    lastName: String
     @rename(attribute: "last_name")
     companyName: String
     @rename(attribute: "company_name")
@@ -552,241 +547,95 @@ type Address {
     postcode: String
     deliveryInstructions: String
     @rename(attribute: "delivery_instructions")
-    contactMail: String
-    @rename(attribute: "contact_mail")
+    contactEmail: String
+    @rename(attribute: "contact_email")
     contactPhone: String
     @rename(attribute: "contact_phone")
-    meta: String
-    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@arrayObjectField")
     shippingDefault: Boolean!
     @rename(attribute: "shipping_default")
     billingDefault: Boolean!
     @rename(attribute: "billing_default")
-    lastUsedAt: DateTimeUtc
-    @rename(attribute: "last_used_at")
+    taxIdentifier: String
+    @rename(attribute: "tax_identifier")
+    meta: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@metaField")
     createdAt: DateTimeUtc
     @rename(attribute: "created_at")
     updatedAt: DateTimeUtc
     @rename(attribute: "updated_at")
-}
-
-type Order {
-    id: ID!
-    @globalId
-    channel: Channel!
-    @belongsTo
-    cart: Cart!
-    @belongsTo
-    lines: [OrderLine!]!
-    @hasMany
-    physicalLines: [OrderLine!]!
-    @hasMany
-    digitalLines: [OrderLine!]!
-    @hasMany
-    shippingLines: [OrderLine!]!
-    @hasMany
-    productLines: [OrderLine!]!
-    @hasMany
-    currency: Currency!
-    @belongsTo
-    addresses: [OrderAddress!]!
-    @hasMany
-    shippingAddress: OrderAddress!
-    @hasOne
-    billingAddress: OrderAddress!
-    @hasOne
-    transactions: [Transaction!]!
-    @hasMany
-    captures: [Transaction!]!
-    @hasMany
-    intents: [Transaction!]!
-    @hasMany
-    refunds: [Transaction!]!
-    @hasMany
-    customer: Customer!
-    @belongsTo
-    user: User!
-    @belongsTo
-    newCustomer: Boolean!
-    @rename(attribute: "new_customer")
-    status: String!
-    reference: String
-    customerReference: String
-    @rename(attribute: "customer_reference")
-    subTotal: Int!
-    @rename(attribute: "sub_total")
-    discountTotal: Int!
-    @rename(attribute: "discount_total")
-    discountBreakdown: String!
-    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@arrayObjectField")
-    shippingBreakdown: String!
-    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@arrayObjectField")
-    taxBreakdown: String!
-    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@arrayObjectField")
-    taxTotal: Int!
-    @rename(attribute: "tax_total")
-    total: Int!
-    notes: String
-    companyCurrencyCode: String
-    @rename(attribute: "company_currency_code")
-    exchangeRate: Float!
-    @rename(attribute: "exchange_rate")
-    meta: String!
-    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@arrayObjectField")
-    createdAt: DateTimeUtc
-    @rename(attribute: "created_at")
-    updatedAt: DateTimeUtc
-    @rename(attribute: "updated_at")
-    placedAt: DateTimeUtc
-    @rename(attribute: "placed_at")
-}
-
-type Channel {
-    id: ID!
-    @globalId
-    name: String!
-    handle: String!
-    default: Boolean!
-    url: String
-    createdAt: DateTimeUtc
-    @rename(attribute: "created_at")
-    updatedAt: DateTimeUtc
-    @rename(attribute: "updated_at")
-    deletedAt: DateTimeUtc
-    @rename(attribute: "deleted_at")
-}
-
-type OrderLine {
-    id: ID!
-    @globalId
-    purchasable: ProductVariant!
-    @morphOne
-    currency: Currency
-    @hasOneThrough
-    order: Order!
-    @belongsTo
-    type: String!
-    description: String!
-    option: String
-    identifier: String
-    unitPrice: Int!
-    @rename(attribute: "unit_price")
-    unitQuantity: Int!
-    @rename(attribute: "unit_quantity")
-    quantity: Int!
-    subTotal: Int!
-    @rename(attribute: "sub_total")
-    discountTotal: Int!
-    @rename(attribute: "discount_total")
-    taxBreakdown: String!
-    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@arrayObjectField")
-    taxTotal: Int!
-    @rename(attribute: "tax_total")
-    total: Int!
-    notes: String
-    meta: String!
-    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@arrayObjectField")
-    createdAt: DateTimeUtc
-    @rename(attribute: "created_at")
-    updatedAt: DateTimeUtc
-    @rename(attribute: "updated_at")
-}
-
-type OrderAddress {
-    id: ID!
-    @globalId
-    order: Order!
-    @belongsTo
-    country: Country!
-    @belongsTo
-    title: String
-    firstName: String
-    @rename(attribute: "first_name")
-    lastName: String
-    @rename(attribute: "last_name")
-    companyName: String
-    @rename(attribute: "company_name")
-    lineOne: String
-    @rename(attribute: "line_one")
-    lineTwo: String
-    @rename(attribute: "line_two")
-    lineThree: String
-    @rename(attribute: "line_three")
-    city: String
-    state: String
-    postcode: String
-    deliveryInstructions: String
-    @rename(attribute: "delivery_instructions")
-    contactMail: String
-    @rename(attribute: "contact_mail")
-    contactPhone: String
-    @rename(attribute: "contact_phone")
-    type: String!
-    shippingOption: String
-    @rename(attribute: "shipping_option")
-    meta: String!
-    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@arrayObjectField")
-    createdAt: DateTimeUtc
-    @rename(attribute: "created_at")
-    updatedAt: DateTimeUtc
-    @rename(attribute: "updated_at")
-}
-
-type Transaction {
-    id: ID!
-    @globalId
-    order: Order!
-    @belongsTo
-    currency: Currency
-    @hasOneThrough
-    success: Boolean!
-    type: String!
-    driver: String!
-    amount: Int!
-    reference: String!
-    status: String!
-    notes: String
-    cardType: String!
-    @rename(attribute: "card_type")
-    lastFour: String
-    @rename(attribute: "last_four")
-    meta: String!
-    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@arrayObjectField")
-    createdAt: DateTimeUtc
-    @rename(attribute: "created_at")
-    updatedAt: DateTimeUtc
-    @rename(attribute: "updated_at")
-    deletedAt: DateTimeUtc
-    @rename(attribute: "deleted_at")
 }
 
 type Cart {
     id: ID!
     @globalId
+    publicId: String
+    @rename(attribute: "public_id")
+    currency: Currency
+    @belongsTo
+    channel: Channel
+    @belongsTo
+    region: Region
+    @belongsTo
+    user: User
+    @belongsTo
+    customer: Customer
+    @belongsTo
     lines: [CartLine!]!
-    @hasMany
-    currency: Currency!
-    @belongsTo
-    user: User!
-    @belongsTo
-    customer: Customer!
-    @belongsTo
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@resolveLines")
     addresses: [CartAddress!]!
     @hasMany
-    shippingAddress: CartAddress!
-    @hasOne
-    billingAddress: CartAddress!
-    @hasOne
-    orders: [Order!]!
-    @hasMany
-    draftOrder: Order!
-    @hasOne
-    completeOrder: Order!
-    @hasOne
-    completeOrders: [Order!]!
-    @hasMany
+    shippingAddress: CartAddress
+    @hasOne(relation: "shippingAddress")
+    billingAddress: CartAddress
+    @hasOne(relation: "billingAddress")
     couponCode: String
     @rename(attribute: "coupon_code")
+    taxZone: TaxZone
+    @belongsTo(relation: "taxZone")
+    order: Order
+    @belongsTo(relation: "order")
+    meta: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@metaField")
+    isShippable: Boolean!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@resolveIsShippable")
+    totalQuantity: Int!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@resolveTotalQuantity")
+    subTotal: Int
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@resolveSubTotal")
+    subTotalFormatted: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@resolveSubTotalFormatted")
+    subTotalDiscounted: Int
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@resolveSubTotalDiscounted")
+    subTotalDiscountedFormatted: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@resolveSubTotalDiscountedFormatted")
+    taxTotal: Int
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@resolveTaxTotal")
+    taxTotalFormatted: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@resolveTaxTotalFormatted")
+    taxBreakdown: [TaxBreakdownAmount!]!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@resolveTaxBreakdown")
+    discountTotal: Int
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@resolveDiscountTotal")
+    discountTotalFormatted: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@resolveDiscountTotalFormatted")
+    discountBreakdown: [DiscountBreakdownItem!]!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@resolveDiscountBreakdown")
+    shippingTotal: Int
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@resolveShippingTotal")
+    shippingTotalFormatted: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@resolveShippingTotalFormatted")
+    shippingSubTotal: Int
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@resolveShippingSubTotal")
+    shippingSubTotalFormatted: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@resolveShippingSubTotalFormatted")
+    shippingTaxTotal: Int
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@resolveShippingTaxTotal")
+    shippingTaxTotalFormatted: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@resolveShippingTaxTotalFormatted")
+    total: Int
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@resolveTotal")
+    totalFormatted: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@resolveTotalFormatted")
     completedAt: DateTimeUtc
     @rename(attribute: "completed_at")
     createdAt: DateTimeUtc
@@ -798,17 +647,27 @@ type Cart {
 type CartLine {
     id: ID!
     @globalId
+    publicId: String
+    @rename(attribute: "public_id")
     cart: Cart!
     @belongsTo
-    taxClass: TaxClass
-    @hasOneThrough
-    discounts: [Discount!]!
-    @belongsToMany
     purchasable: ProductVariant!
-    @morphOne
+    @morphTo
     quantity: Int!
-    meta: String!
-    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@arrayObjectField")
+    subTotal: Int
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@resolveLineSubTotal")
+    subTotalFormatted: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@resolveLineSubTotalFormatted")
+    total: Int
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@resolveLineTotal")
+    totalFormatted: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@resolveLineTotalFormatted")
+    unitPrice: Int
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@resolveLineUnitPrice")
+    unitPriceFormatted: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@resolveLineUnitPriceFormatted")
+    meta: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@metaField")
     createdAt: DateTimeUtc
     @rename(attribute: "created_at")
     updatedAt: DateTimeUtc
@@ -818,10 +677,13 @@ type CartLine {
 type CartAddress {
     id: ID!
     @globalId
+    publicId: String
+    @rename(attribute: "public_id")
     cart: Cart!
     @belongsTo
-    country: Country!
+    country: Country
     @belongsTo
+    type: String!
     title: String
     firstName: String
     @rename(attribute: "first_name")
@@ -840,74 +702,266 @@ type CartAddress {
     postcode: String
     deliveryInstructions: String
     @rename(attribute: "delivery_instructions")
-    contactMail: String
-    @rename(attribute: "contact_mail")
+    contactEmail: String
+    @rename(attribute: "contact_email")
     contactPhone: String
     @rename(attribute: "contact_phone")
-    type: String!
     shippingOption: String
     @rename(attribute: "shipping_option")
-    meta: String!
-    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@arrayObjectField")
+    taxIdentifier: String
+    @rename(attribute: "tax_identifier")
+    meta: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@metaField")
     createdAt: DateTimeUtc
     @rename(attribute: "created_at")
     updatedAt: DateTimeUtc
     @rename(attribute: "updated_at")
 }
 
-type Discount {
+type Order {
     id: ID!
     @globalId
-    name: String!
-    handle: String!
-    coupon: String
-    type: String!
-    users: [User!]!
-    @belongsToMany
-    purchasables: [DiscountPurchasable!]!
+    publicId: String
+    @rename(attribute: "public_id")
+    reference: String
+    customerReference: String
+    @rename(attribute: "customer_reference")
+    channel: Channel
+    @belongsTo
+    currency: Currency
+    @belongsTo
+    status: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@orderStatusField")
+    paymentStatus: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@paymentStatusField")
+    fulfilmentStatus: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@fulfilmentStatusField")
+    lifecycleStatus: String!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@resolveLifecycleStatus")
+    isOpen: Boolean!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@resolveIsOpen")
+    isClosed: Boolean!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@resolveIsClosed")
+    isCancelled: Boolean!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@resolveIsCancelled")
+    isPlaced: Boolean!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@resolveIsPlaced")
+    isDraft: Boolean!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@resolveIsDraft")
+    cancelReason: String
+    @rename(attribute: "cancel_reason")
+    cancelReasonLabel: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@resolveCancelReasonLabel")
+    newCustomer: Boolean
+    @rename(attribute: "new_customer")
+    currencyCode: String
+    @rename(attribute: "currency_code")
+    compareCurrencyCode: String
+    @rename(attribute: "compare_currency_code")
+    exchangeRate: Float
+    @rename(attribute: "exchange_rate")
+    closedAt: DateTimeUtc
+    @rename(attribute: "closed_at")
+    cancelledAt: DateTimeUtc
+    @rename(attribute: "cancelled_at")
+    subTotal: Int!
+    @rename(attribute: "sub_total")
+    subTotalFormatted: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@resolveSubTotalFormatted")
+    discountTotal: Int!
+    @rename(attribute: "discount_total")
+    discountTotalFormatted: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@resolveDiscountTotalFormatted")
+    discountBreakdown: [DiscountBreakdownItem!]!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@resolveDiscountBreakdown")
+    shippingTotal: Int!
+    @rename(attribute: "shipping_total")
+    shippingTotalFormatted: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@resolveShippingTotalFormatted")
+    taxTotal: Int!
+    @rename(attribute: "tax_total")
+    taxTotalFormatted: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@resolveTaxTotalFormatted")
+    taxBreakdown: [TaxBreakdownAmount!]!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@resolveTaxBreakdown")
+    total: Int!
+    @rename(attribute: "total")
+    totalFormatted: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@resolveTotalFormatted")
+    notes: String
+    placedAt: DateTimeUtc
+    @rename(attribute: "placed_at")
+    lines: [OrderLine!]!
     @hasMany
-    purchasableConditions: [DiscountPurchasable!]!
+    shippingLines: [OrderLine!]!
+    @hasMany(relation: "shippingLines")
+    productLines: [OrderLine!]!
+    @hasMany(relation: "productLines")
+    addresses: [OrderAddress!]!
     @hasMany
-    purchasableExclusions: [DiscountPurchasable!]!
+    shippingAddress: OrderAddress
+    @hasOne(relation: "shippingAddress")
+    billingAddress: OrderAddress
+    @hasOne(relation: "billingAddress")
+    transactions: [Transaction!]!
     @hasMany
-    purchasableLimitations: [DiscountPurchasable!]!
+    captures: [Transaction!]!
+    @hasMany(relation: "captures")
+    refunds: [Transaction!]!
+    @hasMany(relation: "refunds")
+    fulfilments: [Fulfilment!]!
     @hasMany
-    purchasableRewards: [DiscountPurchasable!]!
-    @hasMany
-    collections: [Collection!]!
-    @belongsToMany
-    customerGroups: [CustomerGroup!]!
-    @belongsToMany
-    brands: [Brand!]!
-    @belongsToMany
-    startsAt: DateTimeUtc!
-    @rename(attribute: "starts_at")
-    endsAt: DateTimeUtc!
-    @rename(attribute: "ends_at")
-    uses: Int!
-    maxUses: Int!
-    @rename(attribute: "max_uses")
-    priority: Int!
-    @rename(attribute: "priority")
-    stop: Boolean!
-    @rename(attribute: "stop")
-    createdAt: DateTimeUtc!
+    user: User
+    @belongsTo
+    customer: Customer
+    @belongsTo
+    createdAt: DateTimeUtc
     @rename(attribute: "created_at")
-    updatedAt: DateTimeUtc!
+    updatedAt: DateTimeUtc
     @rename(attribute: "updated_at")
 }
 
-type DiscountPurchasable {
+type OrderLine {
     id: ID!
     @globalId
-    purchasable: ProductVariant!
+    order: Order
+    @belongsTo
+    purchasable: ProductVariant
     @morphTo
-    discount: Discount!
+    type: String!
+    description: String!
+    option: String
+    identifier: String
+    requiresShipping: Boolean!
+    @rename(attribute: "requires_shipping")
+    requiresFulfilment: Boolean!
+    @rename(attribute: "requires_fulfilment")
+    refundedQuantity: Int!
+    @rename(attribute: "refunded_quantity")
+    unitPrice: Int!
+    @rename(attribute: "unit_price")
+    unitPriceFormatted: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@resolveLineUnitPriceFormatted")
+    unitQuantity: Int!
+    @rename(attribute: "unit_quantity")
+    quantity: Int!
+    subTotal: Int!
+    @rename(attribute: "sub_total")
+    subTotalFormatted: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@resolveLineSubTotalFormatted")
+    discountTotal: Int!
+    @rename(attribute: "discount_total")
+    discountTotalFormatted: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@resolveLineDiscountTotalFormatted")
+    taxTotal: Int!
+    @rename(attribute: "tax_total")
+    taxTotalFormatted: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@resolveLineTaxTotalFormatted")
+    total: Int!
+    @rename(attribute: "total")
+    totalFormatted: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@resolveLineTotalFormatted")
+    notes: String
+    meta: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@metaField")
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
+
+type OrderAddress {
+    id: ID!
+    @globalId
+    order: Order!
     @belongsTo
     type: String!
-    createdAt: DateTimeUtc!
+    firstName: String
+    @rename(attribute: "first_name")
+    lastName: String
+    @rename(attribute: "last_name")
+    companyName: String
+    @rename(attribute: "company_name")
+    lineOne: String
+    @rename(attribute: "line_one")
+    lineTwo: String
+    @rename(attribute: "line_two")
+    lineThree: String
+    @rename(attribute: "line_three")
+    city: String
+    state: String
+    postcode: String
+    country: Country
+    @belongsTo
+    contactEmail: String
+    @rename(attribute: "contact_email")
+    contactPhone: String
+    @rename(attribute: "contact_phone")
+    shippingOption: String
+    @rename(attribute: "shipping_option")
+    taxIdentifier: String
+    @rename(attribute: "tax_identifier")
+    meta: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@metaField")
+    createdAt: DateTimeUtc
     @rename(attribute: "created_at")
-    updatedAt: DateTimeUtc!
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
+
+type Transaction {
+    id: ID!
+    @globalId
+    success: Boolean!
+    type: String!
+    driver: String!
+    amount: Int!
+    reference: String
+    status: String!
+    notes: String
+    cardType: String
+    @rename(attribute: "card_type")
+    lastFour: String
+    @rename(attribute: "last_four")
+    capturedAt: DateTimeUtc
+    @rename(attribute: "captured_at")
+    meta: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@metaField")
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
+
+type Fulfilment {
+    id: ID!
+    @globalId
+    publicId: String
+    @rename(attribute: "public_id")
+    reference: String
+    method: String
+    status: String!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@fulfilmentStatusField")
+    state: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@fulfilmentStatusField")
+    trackingReference: String
+    @with(relation: "trackings")
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@fulfilmentTrackingReferenceField")
+    trackingUrl: String
+    @with(relation: "trackings")
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@fulfilmentTrackingUrlField")
+    notes: String
+    meta: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@metaField")
+    shippedAt: DateTimeUtc
+    @rename(attribute: "shipped_at")
+    heldAt: DateTimeUtc
+    @rename(attribute: "held_at")
+    holdReason: String
+    @rename(attribute: "hold_reason")
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
     @rename(attribute: "updated_at")
 }
 
@@ -920,9 +974,12 @@ type User {
     @belongsToMany
     orders: [Order!]!
     @hasMany
-    createdAt: DateTimeUtc!
+    latestCustomer: Customer
+    @with(relation: "customers")
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\UserResolver@resolveLatestCustomer")
+    createdAt: DateTimeUtc
     @rename(attribute: "created_at")
-    updatedAt: DateTimeUtc!
+    updatedAt: DateTimeUtc
     @rename(attribute: "updated_at")
 }
 
@@ -932,12 +989,118 @@ type AttributeData {
     value: String
 }
 
+type NameAttribute {
+    lang: String!
+    value: String!
+}
+
 type LoginResponse {
     token: String!
     user: User!
 }
 
-type NameAttribute {
-    lang: String!
-    value: String!
+type Image {
+    id: ID!
+    @globalId
+    url: String!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CatalogResolver@resolveImageUrl")
+    thumbnailUrl: String
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CatalogResolver@resolveImageThumbnailUrl")
+    fileName: String!
+    @rename(attribute: "file_name")
+    mimeType: String!
+    @rename(attribute: "mime_type")
+    size: Int
+    position: Int
+    @rename(attribute: "order_column")
 }
+
+type Url {
+    id: ID!
+    @globalId
+    slug: String!
+    default: Boolean!
+    language: Language
+    @belongsTo
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
+
+type Tag {
+    id: ID!
+    @globalId
+    value: String!
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
+
+type Language {
+    id: ID!
+    @globalId
+    code: String!
+    name: String!
+    default: Boolean!
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
+
+type ShippingOption {
+    name: String!
+    description: String
+    identifier: String!
+    price: Int!
+    priceFormatted: String!
+    priceDecimal: Float!
+    collect: Boolean!
+    taxClass: TaxClass
+    meta: String
+}
+
+type Discount {
+    id: ID!
+    @globalId
+    name: String!
+    handle: String!
+    coupon: String
+    type: String!
+    startsAt: DateTimeUtc
+    @rename(attribute: "starts_at")
+    endsAt: DateTimeUtc
+    @rename(attribute: "ends_at")
+    uses: Int!
+    maxUses: Int
+    @rename(attribute: "max_uses")
+    maxUsesPerUser: Int
+    @rename(attribute: "max_uses_per_user")
+    priority: Int!
+    restriction: String
+    status: String!
+    createdAt: DateTimeUtc
+    @rename(attribute: "created_at")
+    updatedAt: DateTimeUtc
+    @rename(attribute: "updated_at")
+}
+
+type DiscountBreakdownItem {
+    discount: Discount
+    name: String
+    price: Int!
+    priceFormatted: String!
+    priceDecimal: Float!
+}
+
+type TaxBreakdownAmount {
+    identifier: String!
+    description: String!
+    percentage: Float!
+    price: Int!
+    priceFormatted: String!
+    priceDecimal: Float!
+}
+

@@ -1,30 +1,339 @@
 extend type Query {
     """
-    - This api get a list of products
-    - Pagination is enabled by default
-    - Catalog is filtered by channel and collections watch CatalogFilterInput input type
+    Get a paginated list of products from the catalog with optional filters
     """
     catalog(
         filter: CatalogFilterInput
         @builder(method: "Lunargraphql\\GraphQL\\Builders\\CatalogBuilder@filterCatalog")
     ): [Product!]!
-    @paginate
+    @paginate(model: "Lunar\\Core\\Models\\Product", defaultCount: 20, maxCount: 100)
 
     """
-    - This api get a list of attributes that can be used to filter the catalog
+    Get a single product by ID
+    """
+    product(
+        id: ID! @eq @globalId(decode: ID)
+    ): Product
+    @find(model: "Lunar\\Core\\Models\\Product")
+
+    """
+    Get a product variant by ID
+    """
+    productVariant(
+        id: ID! @eq @globalId(decode: ID)
+    ): ProductVariant
+    @find(model: "Lunar\\Core\\Models\\ProductVariant")
+
+    """
+    Get a list of attributes that can be used to filter the catalog
     """
     getFilterableAttributes: [Attribute!]!
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@getFilterableAttributesQuery")
+
+    """
+    Get all collections
+    """
+    collections: [Collection!]!
+    @all(model: "Lunar\\Core\\Models\\Collection")
+
+    """
+    Get a single collection by ID
+    """
+    collection(
+        id: ID! @eq @globalId(decode: ID)
+    ): Collection
+    @find(model: "Lunar\\Core\\Models\\Collection")
+
+    """
+    Get all brands
+    """
+    brands: [Brand!]!
+    @all(model: "Lunar\\Core\\Models\\Brand")
+
+    """
+    Get a single brand by ID
+    """
+    brand(
+        id: ID! @eq @globalId(decode: ID)
+    ): Brand
+    @find(model: "Lunar\\Core\\Models\\Brand")
+
+    """
+    Get all active currencies
+    """
+    currencies: [Currency!]!
+    @all(model: "Lunar\\Core\\Models\\Currency")
+
+    """
+    Get a single currency by ID or code
+    """
+    currency(
+        id: ID @eq @globalId(decode: ID)
+        code: String @eq
+    ): Currency
+    @find(model: "Lunar\\Core\\Models\\Currency")
+
+    """
+    Get the default currency
+    """
+    defaultCurrency: Currency
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CatalogResolver@defaultCurrency")
+
+    """
+    Get all active channels
+    """
+    channels: [Channel!]!
+    @all(model: "Lunar\\Core\\Models\\Channel")
+
+    """
+    Get a single channel by ID or handle
+    """
+    channel(
+        id: ID @eq @globalId(decode: ID)
+        handle: String @eq
+    ): Channel
+    @find(model: "Lunar\\Core\\Models\\Channel")
+
+    """
+    Get the default channel
+    """
+    defaultChannel: Channel
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CatalogResolver@defaultChannel")
+
+    """
+    Get all regions
+    """
+    regions: [Region!]!
+    @all(model: "Lunar\\Core\\Models\\Region")
+
+    """
+    Get a single region by ID or handle
+    """
+    region(
+        id: ID @eq @globalId(decode: ID)
+        handle: String @eq
+    ): Region
+    @find(model: "Lunar\\Core\\Models\\Region")
+
+    """
+    Get the default region
+    """
+    defaultRegion: Region
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CatalogResolver@defaultRegion")
+
+    """
+    Get a single product by URL slug
+    """
+    productBySlug(
+        slug: String!
+    ): Product
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CatalogResolver@productBySlug")
+
+    """
+    Get a single collection by URL slug
+    """
+    collectionBySlug(
+        slug: String!
+    ): Collection
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CatalogResolver@collectionBySlug")
+
+    """
+    Get a single brand by handle
+    """
+    brandByHandle(
+        handle: String!
+    ): Brand
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CatalogResolver@brandByHandle")
+
+    """
+    Get a URL element by slug
+    """
+    url(
+        slug: String!
+    ): Url
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CatalogResolver@urlQuery")
+
+    """
+    Get all tags
+    """
+    tags: [Tag!]!
+    @all(model: "Lunar\\Core\\Models\\Tag")
+
+    """
+    Get a single tag by ID or value
+    """
+    tag(
+        id: ID @eq @globalId(decode: ID)
+        value: String @eq
+    ): Tag
+    @find(model: "Lunar\\Core\\Models\\Tag")
+
+    """
+    Get all languages
+    """
+    languages: [Language!]!
+    @all(model: "Lunar\\Core\\Models\\Language")
+
+    """
+    Get a single language by ID or code
+    """
+    language(
+        id: ID @eq @globalId(decode: ID)
+        code: String @eq
+    ): Language
+    @find(model: "Lunar\\Core\\Models\\Language")
+
+    """
+    Get the default language
+    """
+    defaultLanguage: Language
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CatalogResolver@defaultLanguage")
+
+    """
+    Get all countries
+    """
+    countries: [Country!]!
+    @all(model: "Lunar\\Core\\Models\\Country")
+
+    """
+    Get a single country by ID, iso2, or iso3
+    """
+    country(
+        id: ID @eq @globalId(decode: ID)
+        iso2: String @eq
+        iso3: String @eq
+    ): Country
+    @find(model: "Lunar\\Core\\Models\\Country")
+
+    """
+    Get all product types
+    """
+    productTypes: [ProductType!]!
+    @all(model: "Lunar\\Core\\Models\\ProductType")
+
+    """
+    Get a single product type by ID or handle
+    """
+    productType(
+        id: ID @eq @globalId(decode: ID)
+        handle: String @eq
+    ): ProductType
+    @find(model: "Lunar\\Core\\Models\\ProductType")
+
+    """
+    Get all product options
+    """
+    productOptions: [ProductOption!]!
+    @all(model: "Lunar\\Core\\Models\\ProductOption")
+
+    """
+    Get a single product option by ID or handle
+    """
+    productOption(
+        id: ID @eq @globalId(decode: ID)
+        handle: String @eq
+    ): ProductOption
+    @find(model: "Lunar\\Core\\Models\\ProductOption")
+
+    """
+    Get all collection groups
+    """
+    collectionGroups: [CollectionGroup!]!
+    @all(model: "Lunar\\Core\\Models\\CollectionGroup")
+
+    """
+    Get a single collection group by ID or handle
+    """
+    collectionGroup(
+        id: ID @eq @globalId(decode: ID)
+        handle: String @eq
+    ): CollectionGroup
+    @find(model: "Lunar\\Core\\Models\\CollectionGroup")
+
+    """
+    Get all attribute groups
+    """
+    attributeGroups: [AttributeGroup!]!
+    @all(model: "Lunar\\Core\\Models\\AttributeGroup")
+
+    """
+    Get a single attribute group by ID or handle
+    """
+    attributeGroup(
+        id: ID @eq @globalId(decode: ID)
+        handle: String @eq
+    ): AttributeGroup
+    @find(model: "Lunar\\Core\\Models\\AttributeGroup")
+
+    """
+    Get all attributes
+    """
+    attributes: [Attribute!]!
+    @all(model: "Lunar\\Core\\Models\\Attribute")
+
+    """
+    Get a single attribute by ID or handle
+    """
+    attribute(
+        id: ID @eq @globalId(decode: ID)
+        handle: String @eq
+    ): Attribute
+    @find(model: "Lunar\\Core\\Models\\Attribute")
+
+    """
+    Get all customer groups
+    """
+    customerGroups: [CustomerGroup!]!
+    @all(model: "Lunar\\Core\\Models\\CustomerGroup")
+
+    """
+    Get a single customer group by ID or handle
+    """
+    customerGroup(
+        id: ID @eq @globalId(decode: ID)
+        handle: String @eq
+    ): CustomerGroup
+    @find(model: "Lunar\\Core\\Models\\CustomerGroup")
+
+    """
+    Get all tax classes
+    """
+    taxClasses: [TaxClass!]!
+    @all(model: "Lunar\\Core\\Models\\TaxClass")
+
+    """
+    Get all tax zones
+    """
+    taxZones: [TaxZone!]!
+    @all(model: "Lunar\\Core\\Models\\TaxZone")
+
+    """
+    Get all discounts
+    """
+    discounts: [Discount!]!
+    @all(model: "Lunar\\Core\\Models\\Discount")
+
+    """
+    Get a single discount by ID, handle, or coupon
+    """
+    discount(
+        id: ID @eq @globalId(decode: ID)
+        handle: String @eq
+        coupon: String @eq
+    ): Discount
+    @find(model: "Lunar\\Core\\Models\\Discount")
 }
 
 input CatalogFilterInput {
     channels: [ID!]
-    @globalId(decode: ID)
     collections: [ID!]
-    @globalId(decode: ID)
+    brands: [ID!]
     search: String
     filters: [FilterInput!]
-    prices: [PriceRangeInput!]
+    priceRange: PriceRangeInput
+    prices: PriceRangeInput
+    options: [ID!]
+    optionValues: [ID!]
 }
 
 input FilterInput {
