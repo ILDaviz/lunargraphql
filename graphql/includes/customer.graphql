@@ -101,6 +101,8 @@ input AddressInput {
     firstName: String!
     lastName: String!
     companyName: String
+    taxIdentifier: String
+    vatNo: String
     lineOne: String!
     lineTwo: String
     lineThree: String

@@ -73,12 +73,15 @@ class CustomerAddressResolver
             $countryId = $country?->id;
         }
 
+        $taxIdentifier = Arr::get($addressInput, 'taxIdentifier') ?? Arr::get($addressInput, 'vatNo') ?? Arr::get($addressInput, 'tax_identifier');
+
         $data = [
             'country_id' => $countryId,
             'title' => Arr::get($addressInput, 'title'),
             'first_name' => Arr::get($addressInput, 'firstName'),
             'last_name' => Arr::get($addressInput, 'lastName'),
             'company_name' => Arr::get($addressInput, 'companyName'),
+            'tax_identifier' => $taxIdentifier,
             'line_one' => Arr::get($addressInput, 'lineOne'),
             'line_two' => Arr::get($addressInput, 'lineTwo'),
             'line_three' => Arr::get($addressInput, 'lineThree'),
@@ -127,11 +130,14 @@ class CustomerAddressResolver
             $countryId = $country?->id;
         }
 
+        $taxIdentifier = Arr::get($addressInput, 'taxIdentifier') ?? Arr::get($addressInput, 'vatNo') ?? Arr::get($addressInput, 'tax_identifier', $address->tax_identifier);
+
         $data = [
             'title' => Arr::get($addressInput, 'title', $address->title),
             'first_name' => Arr::get($addressInput, 'firstName', $address->first_name),
             'last_name' => Arr::get($addressInput, 'lastName', $address->last_name),
             'company_name' => Arr::get($addressInput, 'companyName', $address->company_name),
+            'tax_identifier' => $taxIdentifier,
             'line_one' => Arr::get($addressInput, 'lineOne', $address->line_one),
             'line_two' => Arr::get($addressInput, 'lineTwo', $address->line_two),
             'line_three' => Arr::get($addressInput, 'lineThree', $address->line_three),

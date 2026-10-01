@@ -69,6 +69,32 @@ class OrderResolver
             throw CartException::invalidAddress('shipping');
         }
 
+        if (! $cart->billingAddress) {
+            if ($cart->shippingAddress) {
+                $shipping = $cart->shippingAddress;
+                $cart->setBillingAddress([
+                    'title' => $shipping->title,
+                    'first_name' => $shipping->first_name,
+                    'last_name' => $shipping->last_name,
+                    'company_name' => $shipping->company_name,
+                    'tax_identifier' => $shipping->tax_identifier,
+                    'line_one' => $shipping->line_one,
+                    'line_two' => $shipping->line_two,
+                    'line_three' => $shipping->line_three,
+                    'city' => $shipping->city,
+                    'state' => $shipping->state,
+                    'postcode' => $shipping->postcode,
+                    'country_id' => $shipping->country_id,
+                    'contact_email' => $shipping->contact_email,
+                    'contact_phone' => $shipping->contact_phone,
+                    'meta' => $shipping->meta instanceof \ArrayObject ? $shipping->meta->toArray() : (is_array($shipping->meta) ? $shipping->meta : []),
+                ]);
+                $cart->load('billingAddress');
+            } else {
+                throw CartException::invalidAddress('billing');
+            }
+        }
+
         $lock = Cache::lock("create-order-cart-{$cart->id}", 15);
         if (! $lock->get()) {
             throw CartException::orderCreationFailed(CartException::trans('order_creation_already_in_progress', 'Order creation is already in progress for this cart.'));

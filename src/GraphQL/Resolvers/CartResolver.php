@@ -241,12 +241,15 @@ class CartResolver
             $countryId = $country?->id;
         }
 
+        $taxIdentifier = Arr::get($addressInput, 'taxIdentifier') ?? Arr::get($addressInput, 'vatNo') ?? Arr::get($addressInput, 'tax_identifier');
+
         $addressData = [
             'country_id' => $countryId,
             'title' => Arr::get($addressInput, 'title'),
             'first_name' => Arr::get($addressInput, 'firstName'),
             'last_name' => Arr::get($addressInput, 'lastName'),
             'company_name' => Arr::get($addressInput, 'companyName'),
+            'tax_identifier' => $taxIdentifier,
             'line_one' => Arr::get($addressInput, 'lineOne'),
             'line_two' => Arr::get($addressInput, 'lineTwo'),
             'line_three' => Arr::get($addressInput, 'lineThree'),
@@ -266,6 +269,17 @@ class CartResolver
             $this->saveAddressToCustomerProfile($user, $cleanData, 'shipping');
         }
 
+        // Automatic billing sync if requested
+        if (Arr::get($args, 'sameAsBilling', false)) {
+            $billingData = $cleanData;
+            unset($billingData['shipping_option'], $billingData['delivery_instructions']);
+            $cart->setBillingAddress($billingData);
+
+            if (Arr::get($addressInput, 'saveAddress') && $user = $this->getUserLoggedIn()) {
+                $this->saveAddressToCustomerProfile($user, $billingData, 'billing');
+            }
+        }
+
         return $cart->refresh()->calculate();
     }
 
@@ -274,7 +288,41 @@ class CartResolver
         $cart = $this->resolveCart($args);
         $this->assertCartNotCompleted($cart);
 
+        // Option 1: Copy from existing shipping address
+        if (Arr::get($args, 'sameAsShipping', false)) {
+            $shippingAddress = $cart->shippingAddress;
+            throw_unless($shippingAddress, new CartException(CartException::trans('invalid_shipping_address', 'A valid shipping address is required before copying to billing.'), 422));
+
+            $billingData = [
+                'country_id' => $shippingAddress->country_id,
+                'title' => $shippingAddress->title,
+                'first_name' => $shippingAddress->first_name,
+                'last_name' => $shippingAddress->last_name,
+                'company_name' => $shippingAddress->company_name,
+                'tax_identifier' => $shippingAddress->tax_identifier,
+                'line_one' => $shippingAddress->line_one,
+                'line_two' => $shippingAddress->line_two,
+                'line_three' => $shippingAddress->line_three,
+                'city' => $shippingAddress->city,
+                'state' => $shippingAddress->state,
+                'postcode' => $shippingAddress->postcode,
+                'contact_email' => $shippingAddress->contact_email,
+                'contact_phone' => $shippingAddress->contact_phone,
+            ];
+
+            $cleanData = array_filter($billingData, fn ($v) => $v !== null);
+            $cart->setBillingAddress($cleanData);
+
+            if ($user = $this->getUserLoggedIn()) {
+                $this->saveAddressToCustomerProfile($user, $cleanData, 'billing');
+            }
+
+            return $cart->refresh()->calculate();
+        }
+
+        // Option 2: Explicit billing / invoicing address
         $addressInput = Arr::get($args, 'address', []);
+        throw_if(empty($addressInput), new CartException(CartException::trans('invalid_billing_address', 'A valid billing address is required.'), 422));
 
         $contactEmail = Arr::get($addressInput, 'contactEmail');
         if ($contactEmail !== null && ! filter_var(trim($contactEmail), FILTER_VALIDATE_EMAIL)) {
@@ -289,12 +337,15 @@ class CartResolver
             $countryId = $country?->id;
         }
 
+        $taxIdentifier = Arr::get($addressInput, 'taxIdentifier') ?? Arr::get($addressInput, 'vatNo') ?? Arr::get($addressInput, 'tax_identifier');
+
         $addressData = [
             'country_id' => $countryId,
             'title' => Arr::get($addressInput, 'title'),
             'first_name' => Arr::get($addressInput, 'firstName'),
             'last_name' => Arr::get($addressInput, 'lastName'),
             'company_name' => Arr::get($addressInput, 'companyName'),
+            'tax_identifier' => $taxIdentifier,
             'line_one' => Arr::get($addressInput, 'lineOne'),
             'line_two' => Arr::get($addressInput, 'lineTwo'),
             'line_three' => Arr::get($addressInput, 'lineThree'),
@@ -350,6 +401,13 @@ class CartResolver
 
         $cart->setShippingAddress(array_filter($addressData, fn ($v) => $v !== null));
 
+        if (Arr::get($args, 'sameAsBilling', false)) {
+            $billingData = $addressData;
+            unset($billingData['shipping_option'], $billingData['delivery_instructions']);
+            $billingData['tax_identifier'] = $customerAddress->tax_identifier;
+            $cart->setBillingAddress(array_filter($billingData, fn ($v) => $v !== null));
+        }
+
         return $cart->refresh()->calculate();
     }
 
@@ -357,6 +415,31 @@ class CartResolver
     {
         $cart = $this->resolveCart($args);
         $this->assertCartNotCompleted($cart);
+
+        if (Arr::get($args, 'sameAsShipping', false)) {
+            $shippingAddress = $cart->shippingAddress;
+            throw_unless($shippingAddress, new CartException(CartException::trans('invalid_shipping_address', 'A valid shipping address is required before copying to billing.'), 422));
+
+            $billingData = [
+                'country_id' => $shippingAddress->country_id,
+                'title' => $shippingAddress->title,
+                'first_name' => $shippingAddress->first_name,
+                'last_name' => $shippingAddress->last_name,
+                'company_name' => $shippingAddress->company_name,
+                'tax_identifier' => $shippingAddress->tax_identifier,
+                'line_one' => $shippingAddress->line_one,
+                'line_two' => $shippingAddress->line_two,
+                'line_three' => $shippingAddress->line_three,
+                'city' => $shippingAddress->city,
+                'state' => $shippingAddress->state,
+                'postcode' => $shippingAddress->postcode,
+                'contact_email' => $shippingAddress->contact_email,
+                'contact_phone' => $shippingAddress->contact_phone,
+            ];
+
+            $cart->setBillingAddress(array_filter($billingData, fn ($v) => $v !== null));
+            return $cart->refresh()->calculate();
+        }
 
         $user = $this->getUserLoggedIn();
         throw_unless($user, new CartException('Authentication required to use saved customer address.', 401));
@@ -374,6 +457,7 @@ class CartResolver
             'first_name' => $customerAddress->first_name,
             'last_name' => $customerAddress->last_name,
             'company_name' => $customerAddress->company_name,
+            'tax_identifier' => $customerAddress->tax_identifier,
             'line_one' => $customerAddress->line_one,
             'line_two' => $customerAddress->line_two,
             'line_three' => $customerAddress->line_three,

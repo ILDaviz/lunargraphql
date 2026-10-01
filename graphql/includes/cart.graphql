@@ -77,20 +77,22 @@ extend type Mutation {
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@clearCartMutation")
 
     """
-    Set shipping address on the cart
+    Set shipping address on the cart with optional automatic billing sync
     """
     setCartShippingAddress(
         cartId: ID @globalId(decode: ID)
         address: CartAddressInput!
+        sameAsBilling: Boolean = false
     ): Cart!
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@setCartShippingAddressMutation")
 
     """
-    Set billing address on the cart
+    Set billing address on the cart (supports custom invoice data or copying from shipping)
     """
     setCartBillingAddress(
         cartId: ID @globalId(decode: ID)
-        address: CartAddressInput!
+        address: CartAddressInput
+        sameAsShipping: Boolean = false
     ): Cart!
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@setCartBillingAddressMutation")
 
@@ -101,16 +103,18 @@ extend type Mutation {
         cartId: ID @globalId(decode: ID)
         customerAddressId: ID! @globalId(decode: ID)
         shippingOption: String
+        sameAsBilling: Boolean = false
     ): Cart!
     @guard
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@setCartCustomerShippingAddressMutation")
 
     """
-    Set billing address on the cart from an existing customer address
+    Set billing address on the cart from an existing customer address (or copy shipping)
     """
     setCartCustomerBillingAddress(
         cartId: ID @globalId(decode: ID)
-        customerAddressId: ID! @globalId(decode: ID)
+        customerAddressId: ID @globalId(decode: ID)
+        sameAsShipping: Boolean = false
     ): Cart!
     @guard
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@setCartCustomerBillingAddressMutation")
@@ -157,6 +161,8 @@ input CartAddressInput {
     firstName: String!
     lastName: String!
     companyName: String
+    taxIdentifier: String
+    vatNo: String
     lineOne: String!
     lineTwo: String
     lineThree: String

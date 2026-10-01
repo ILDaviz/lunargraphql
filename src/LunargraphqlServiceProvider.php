@@ -37,6 +37,11 @@ class LunargraphqlServiceProvider extends PackageServiceProvider
 
     public function packageBooted(): void
     {
+        $this->app->singleton(
+            GlobalId::class,
+            SmartGlobalId::class
+        );
+
         // Publish schema
         if ($this->app->runningInConsole()) {
             $this->publishes([

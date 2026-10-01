@@ -561,6 +561,8 @@ type Address {
     @rename(attribute: "shipping_default")
     billingDefault: Boolean!
     @rename(attribute: "billing_default")
+    vatNo: String
+    @rename(attribute: "tax_identifier")
     taxIdentifier: String
     @rename(attribute: "tax_identifier")
     meta: String
@@ -714,6 +716,8 @@ type CartAddress {
     @rename(attribute: "contact_phone")
     shippingOption: String
     @rename(attribute: "shipping_option")
+    vatNo: String
+    @rename(attribute: "tax_identifier")
     taxIdentifier: String
     @rename(attribute: "tax_identifier")
     meta: String
@@ -882,6 +886,7 @@ type OrderAddress {
     order: Order!
     @belongsTo
     type: String!
+    title: String
     firstName: String
     @rename(attribute: "first_name")
     lastName: String
@@ -897,6 +902,8 @@ type OrderAddress {
     city: String
     state: String
     postcode: String
+    deliveryInstructions: String
+    @rename(attribute: "delivery_instructions")
     country: Country
     @belongsTo
     contactEmail: String
@@ -905,6 +912,8 @@ type OrderAddress {
     @rename(attribute: "contact_phone")
     shippingOption: String
     @rename(attribute: "shipping_option")
+    vatNo: String
+    @rename(attribute: "tax_identifier")
     taxIdentifier: String
     @rename(attribute: "tax_identifier")
     meta: String
