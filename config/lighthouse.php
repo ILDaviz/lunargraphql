@@ -151,7 +151,7 @@ return [
     */
 
     'namespaces' => [
-        'models' => ['Lunargraphql\\Models'],
+        'models' => ['Lunar\\Core\\Models', 'Lunargraphql\\Models'],
         'queries' => 'Lunargraphql\\GraphQL\\Queries',
         'mutations' => 'Lunargraphql\\GraphQL\\Mutations',
         'subscriptions' => 'Lunargraphql\\GraphQL\\Subscriptions',
@@ -159,7 +159,7 @@ return [
         'interfaces' => 'Lunargraphql\\GraphQL\\Interfaces',
         'unions' => 'Lunargraphql\\GraphQL\\Unions',
         'scalars' => 'Lunargraphql\\GraphQL\\Scalars',
-        'directives' => 'Lunargraphql\\GraphQL\\Directives',
+        'directives' => ['Lunargraphql\\GraphQL\\Directives', 'Nuwave\\Lighthouse\\Schema\\Directives'],
         'validators' => 'Lunargraphql\\GraphQL\\Validators',
     ],
 
@@ -174,8 +174,8 @@ return [
     */
 
     'security' => [
-        'max_query_complexity' => GraphQL\Validator\Rules\QueryComplexity::DISABLED,
-        'max_query_depth' => GraphQL\Validator\Rules\QueryDepth::DISABLED,
+        'max_query_complexity' => (int) env('LIGHTHOUSE_SECURITY_MAX_QUERY_COMPLEXITY', 0) ?: GraphQL\Validator\Rules\QueryComplexity::DISABLED,
+        'max_query_depth' => (int) env('LIGHTHOUSE_SECURITY_MAX_QUERY_DEPTH', 0) ?: GraphQL\Validator\Rules\QueryDepth::DISABLED,
         'disable_introspection' => (bool) env('LIGHTHOUSE_SECURITY_DISABLE_INTROSPECTION', false)
             ? GraphQL\Validator\Rules\DisableIntrospection::ENABLED
             : GraphQL\Validator\Rules\DisableIntrospection::DISABLED,
@@ -196,13 +196,13 @@ return [
          * Allow clients to query paginated lists without specifying the amount of items.
          * Setting this to `null` means clients have to explicitly ask for the count.
          */
-        'default_count' => null,
+        'default_count' => 20,
 
         /*
          * Limit the maximum amount of items that clients can request from paginated lists.
          * Setting this to `null` means the count is unrestricted.
          */
-        'max_count' => null,
+        'max_count' => 100,
     ],
 
     /*
