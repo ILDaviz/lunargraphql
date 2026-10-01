@@ -1,0 +1,61 @@
+extend type Mutation {
+    """
+    Create an order from the current session cart (or specified cart)
+    """
+    createOrderFromCart(
+        cartID: ID @globalId(decode: ID)
+    ): Order!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@createOrderFromCart")
+
+    """
+    Record a payment transaction against an order
+    """
+    recordOrderTransaction(
+        orderId: ID! @globalId(decode: ID)
+        amount: Int!
+        type: String = "capture"
+        driver: String = "manual"
+        reference: String
+        status: String = "success"
+        notes: String
+        cardType: String
+        lastFour: String
+        success: Boolean = true
+        meta: String
+    ): Transaction!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@recordOrderTransactionMutation")
+}
+
+extend type Query {
+    """
+    Get an order by ID or reference
+    """
+    order(
+        id: ID! @globalId(decode: ID)
+    ): Order
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@getOrderQuery")
+
+    """
+    Get an order by reference
+    """
+    orderByReference(
+        reference: String!
+    ): Order
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@getOrderByReferenceQuery")
+
+    """
+    Get a guest order securely by reference and email
+    """
+    guestOrder(
+        reference: String!
+        email: String!
+    ): Order
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@getGuestOrderQuery")
+
+    """
+    Get the authenticated user's orders
+    """
+    myOrders: [Order!]!
+    @guard
+    @paginate(builder: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@myOrdersQuery", defaultCount: 10, maxCount: 50)
+}

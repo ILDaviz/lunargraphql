@@ -1,0 +1,115 @@
+extend type Query {
+    """
+    Get the authenticated customer profile
+    """
+    customer: Customer
+    @guard
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CustomerAddressResolver@getCustomerProfileQuery")
+
+    """
+    Get addresses belonging to the authenticated customer
+    """
+    customerAddresses: [Address!]!
+    @guard
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CustomerAddressResolver@getCustomerAddressesQuery")
+
+    """
+    Get a single address belonging to the authenticated customer
+    """
+    customerAddress(
+        id: ID! @globalId(decode: ID)
+    ): Address
+    @guard
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CustomerAddressResolver@getCustomerAddressQuery")
+}
+
+extend type Mutation {
+    """
+    Update the authenticated customer's profile details
+    """
+    updateCustomerProfile(
+        title: String
+        firstName: String
+        lastName: String
+        companyName: String
+        vatNo: String
+        taxIdentifier: String
+        accountRef: String
+    ): Customer!
+    @guard
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CustomerAddressResolver@updateCustomerProfileMutation")
+
+    """
+    Update the authenticated user's account details
+    """
+    updateUserProfile(
+        name: String
+        email: String
+    ): User!
+    @guard
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\UserResolver@updateUserProfileMutation")
+
+    """
+    Create a new address for the authenticated customer
+    """
+    createCustomerAddress(
+        address: AddressInput!
+    ): Address!
+    @guard
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CustomerAddressResolver@createCustomerAddressMutation")
+
+    """
+    Update an existing address for the authenticated customer
+    """
+    updateCustomerAddress(
+        id: ID! @globalId(decode: ID)
+        address: AddressInput!
+    ): Address!
+    @guard
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CustomerAddressResolver@updateCustomerAddressMutation")
+
+    """
+    Delete an address belonging to the authenticated customer
+    """
+    deleteCustomerAddress(
+        id: ID! @globalId(decode: ID)
+    ): Boolean!
+    @guard
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CustomerAddressResolver@deleteCustomerAddressMutation")
+
+    """
+    Set default address (shipping or billing)
+    """
+    setDefaultCustomerAddress(
+        id: ID! @globalId(decode: ID)
+        type: AddressDefaultType!
+    ): Address!
+    @guard
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CustomerAddressResolver@setDefaultCustomerAddressMutation")
+}
+
+enum AddressDefaultType {
+    SHIPPING
+    BILLING
+    BOTH
+}
+
+input AddressInput {
+    countryId: ID
+    country: String
+    title: String
+    firstName: String!
+    lastName: String!
+    companyName: String
+    lineOne: String!
+    lineTwo: String
+    lineThree: String
+    city: String!
+    state: String
+    postcode: String!
+    contactEmail: String
+    contactPhone: String
+    deliveryInstructions: String
+    shippingDefault: Boolean
+    billingDefault: Boolean
+}
