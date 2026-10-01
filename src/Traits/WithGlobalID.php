@@ -15,48 +15,93 @@ trait WithGlobalID
      *
      * @param string $globalId
      * @return array
-     * @throws GlobalIdException
      */
     public function decodeGlobalId(string $globalId): array
     {
-        return (new Base64GlobalId)->decode($globalId);
+        try {
+            return (new Base64GlobalId)->decode($globalId);
+        } catch (\Throwable) {
+            // Fallback for unencoded or custom values
+            if (str_contains($globalId, ':')) {
+                return explode(':', $globalId, 2);
+            }
+
+            return ['', $globalId];
+        }
     }
 
     /**
      * Encode the global ID.
      *
      * @param string $type
-     * @param string $id
+     * @param string|int $id
      * @return string
      */
-    public function encodeGlobalId(string $type, string $id): string
+    public function encodeGlobalId(string $type, string|int $id): string
     {
-        return (new Base64GlobalId)->encode($type, $id);
+        return (new Base64GlobalId)->encode($type, (string) $id);
     }
 
     /**
-     * Get the model from the global ID.
+     * Extract the raw ID from a field value (which could be an array from Lighthouse, a base64 string, or a raw id).
+     *
+     * @param array $args
+     * @param string $fieldName
+     * @return string|int|null
+     */
+    public function extractIdFromArgs(array $args, string $fieldName): string|int|null
+    {
+        $value = Arr::get($args, $fieldName);
+
+        if ($value === null) {
+            return null;
+        }
+
+        if (is_array($value)) {
+            // Lighthouse @globalId decodes to [type, id] or ['type' => ..., 'id' => ...]
+            return Arr::get($value, 1) ?? Arr::get($value, 'id') ?? Arr::get($value, 0);
+        }
+
+        if (is_numeric($value)) {
+            return $value;
+        }
+
+        // Try decoding as base64 global ID
+        $decoded = $this->decodeGlobalId((string) $value);
+        if (! empty($decoded[1])) {
+            return $decoded[1];
+        }
+
+        return $value;
+    }
+
+    /**
+     * Get the model from the global ID or direct ID / public_id.
      *
      * @param array $args
      * @param string $fieldName
      * @param string $typeClass
      * @return Model|null
-     * @throws \Exception
      */
     public function getModelFromGlobalId(array $args, string $fieldName, string $typeClass): ?Model
     {
+        $id = $this->extractIdFromArgs($args, $fieldName);
 
-        $globalValue = Arr::get($args, $fieldName);
-
-        $nameClass = Str::of($typeClass)->afterLast('\\')->__toString();
-
-        $nameClassGlobal = Arr::get($globalValue, 0);
-        $idClassGlobal = Arr::get($globalValue, 1);
-
-        if ($nameClassGlobal !== $nameClass) {
-            throw new \Exception("The global ID is not from the type $nameClass");
+        if ($id === null) {
+            return null;
         }
 
-        return (new $typeClass)::find($idClassGlobal);
+        /** @var Model $instance */
+        $instance = new $typeClass;
+
+        // Try primary key find
+        $model = $instance->newQuery()->find($id);
+
+        // Fallback to public_id if model has public_id column and wasn't found by integer id
+        if (! $model && is_string($id) && method_exists($instance, 'getConnection')) {
+            $model = $instance->newQuery()->where('public_id', $id)->first();
+        }
+
+        return $model;
     }
 }

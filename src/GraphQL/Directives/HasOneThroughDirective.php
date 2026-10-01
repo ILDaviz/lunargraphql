@@ -2,14 +2,9 @@
 
 namespace Lunargraphql\GraphQL\Directives;
 
-use Illuminate\Database\Eloquent\Model;
-use Nuwave\Lighthouse\Execution\ResolveInfo;
 use Nuwave\Lighthouse\Schema\Directives\RelationDirective;
-use Nuwave\Lighthouse\Schema\Values\FieldValue;
-use Nuwave\Lighthouse\Support\Contracts\FieldManipulator;
-use Nuwave\Lighthouse\Support\Contracts\GraphQLContext;
 
-class HasOneThroughDirective extends RelationDirective implements FieldManipulator
+class HasOneThroughDirective extends RelationDirective
 {
     public static function definition(): string
     {
@@ -30,24 +25,5 @@ directive @hasOneThrough(
   scopes: [String!]
 ) on FIELD_DEFINITION
 GRAPHQL;
-    }
-
-    public function resolveField(FieldValue $fieldValue): callable
-    {
-        $relationName = $this->relation();
-
-        return function (Model $parent, array $args, GraphQLContext $context, ResolveInfo $resolveInfo) use ($relationName) {
-
-            $relation = $this->directiveArgValue('relation', $relationName);
-            $relation = $parent->{$relation}();
-
-            if ($scopes = $this->directiveArgValue('scopes')) {
-                foreach ($scopes as $scope) {
-                    $relation->{$scope}();
-                }
-            }
-
-            return $relation->getResults();
-        };
     }
 }
