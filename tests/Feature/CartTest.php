@@ -67,7 +67,7 @@ it('can get current cart or create new cart', function () {
 it('can add a product variant to the cart', function () {
     $response = $this->graphQL(/** @lang GraphQL */ '
         mutation ($variantId: ID!, $quantity: Int!) {
-            addProductVariantToCart(productVariantID: $variantId, quantity: $quantity) {
+            addProductVariantToCart(productVariantId: $variantId, quantity: $quantity) {
                 id
                 lines {
                     id
@@ -111,7 +111,7 @@ it('can update cart line quantity', function () {
     // First add to cart
     $addResponse = $this->graphQL(/** @lang GraphQL */ '
         mutation ($variantId: ID!, $quantity: Int!) {
-            addProductVariantToCart(productVariantID: $variantId, quantity: $quantity) {
+            addProductVariantToCart(productVariantId: $variantId, quantity: $quantity) {
                 lines {
                     id
                     quantity
@@ -128,7 +128,7 @@ it('can update cart line quantity', function () {
     // Update quantity
     $response = $this->graphQL(/** @lang GraphQL */ '
         mutation ($lineId: ID!, $quantity: Int!) {
-            updateCartLine(cartLineID: $lineId, quantity: $quantity) {
+            updateCartLine(cartLineId: $lineId, quantity: $quantity) {
                 lines {
                     id
                     quantity
@@ -156,7 +156,7 @@ it('can update cart line quantity', function () {
 it('can remove cart line', function () {
     $addResponse = $this->graphQL(/** @lang GraphQL */ '
         mutation ($variantId: ID!, $quantity: Int!) {
-            addProductVariantToCart(productVariantID: $variantId, quantity: $quantity) {
+            addProductVariantToCart(productVariantId: $variantId, quantity: $quantity) {
                 lines {
                     id
                 }
@@ -171,7 +171,7 @@ it('can remove cart line', function () {
 
     $response = $this->graphQL(/** @lang GraphQL */ '
         mutation ($lineId: ID!) {
-            removeCartLine(cartLineID: $lineId) {
+            removeCartLine(cartLineId: $lineId) {
                 lines {
                     id
                 }
@@ -193,7 +193,7 @@ it('can remove cart line', function () {
 it('can clear cart', function () {
     $this->graphQL(/** @lang GraphQL */ '
         mutation ($variantId: ID!) {
-            addProductVariantToCart(productVariantID: $variantId, quantity: 1) {
+            addProductVariantToCart(productVariantId: $variantId, quantity: 1) {
                 id
             }
         }
@@ -320,7 +320,7 @@ it('can apply and remove coupon on cart', function () {
 it('can calculate cart totals', function () {
     $this->graphQL(/** @lang GraphQL */ '
         mutation ($variantId: ID!) {
-            addProductVariantToCart(productVariantID: $variantId, quantity: 2) {
+            addProductVariantToCart(productVariantId: $variantId, quantity: 2) {
                 id
             }
         }

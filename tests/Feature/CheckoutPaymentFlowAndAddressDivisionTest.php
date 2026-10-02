@@ -80,7 +80,7 @@ it('supports clear separation of shipping and billing addresses with taxIdentifi
     // 1. Add item to cart
     $addResponse = $this->graphQL(/** @lang GraphQL */ '
         mutation ($variantId: ID!) {
-            addProductVariantToCart(productVariantID: $variantId, quantity: 1) {
+            addProductVariantToCart(productVariantId: $variantId, quantity: 1) {
                 id
                 lines {
                     id
@@ -176,7 +176,7 @@ it('supports clear separation of shipping and billing addresses with taxIdentifi
 it('supports sameAsBilling flag when setting shipping address to automatically sync both addresses', function () {
     $this->graphQL(/** @lang GraphQL */ '
         mutation ($variantId: ID!) {
-            addProductVariantToCart(productVariantID: $variantId, quantity: 1) {
+            addProductVariantToCart(productVariantId: $variantId, quantity: 1) {
                 id
             }
         }
@@ -231,7 +231,7 @@ it('supports sameAsBilling flag when setting shipping address to automatically s
 it('supports sameAsShipping flag when setting billing address to copy from existing shipping address without payload', function () {
     $this->graphQL(/** @lang GraphQL */ '
         mutation ($variantId: ID!) {
-            addProductVariantToCart(productVariantID: $variantId, quantity: 1) {
+            addProductVariantToCart(productVariantId: $variantId, quantity: 1) {
                 id
             }
         }
@@ -289,7 +289,7 @@ it('simulates a complete checkout and payment round with separated addresses and
 
     $addResponse = $this->graphQL(/** @lang GraphQL */ '
         mutation ($variantId: ID!) {
-            addProductVariantToCart(productVariantID: $variantId, quantity: 2) {
+            addProductVariantToCart(productVariantId: $variantId, quantity: 2) {
                 id
                 subTotal
                 lines {
@@ -539,7 +539,7 @@ it('automatically falls back billing address to shipping address during checkout
     // 1. Add variant to cart
     $addResponse = $this->graphQL(/** @lang GraphQL */ '
         mutation ($variantId: ID!) {
-            addProductVariantToCart(productVariantID: $variantId, quantity: 1) {
+            addProductVariantToCart(productVariantId: $variantId, quantity: 1) {
                 id
             }
         }
@@ -615,7 +615,7 @@ it('rejects order creation if shippable cart lacks shipping address', function (
     // Add shippable item to cart
     $addResponse = $this->graphQL(/** @lang GraphQL */ '
         mutation ($variantId: ID!) {
-            addProductVariantToCart(productVariantID: $variantId, quantity: 1) {
+            addProductVariantToCart(productVariantId: $variantId, quantity: 1) {
                 id
             }
         }
@@ -678,7 +678,7 @@ it('supports saved customer addresses with taxIdentifier and sync flags on cart'
     // 2. Add product to cart
     $addResponse = $this->graphQL(/** @lang GraphQL */ '
         mutation ($variantId: ID!) {
-            addProductVariantToCart(productVariantID: $variantId, quantity: 1) {
+            addProductVariantToCart(productVariantId: $variantId, quantity: 1) {
                 id
             }
         }

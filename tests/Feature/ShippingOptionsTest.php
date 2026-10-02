@@ -79,7 +79,7 @@ it('returns available shipping options for a shippable cart', function () {
     // Add shippable item to cart
     $addResponse = $this->graphQL(/** @lang GraphQL */ '
         mutation ($variantId: ID!) {
-            addProductVariantToCart(productVariantID: $variantId, quantity: 1) {
+            addProductVariantToCart(productVariantId: $variantId, quantity: 1) {
                 id
             }
         }
@@ -121,7 +121,7 @@ it('can select a shipping option on cart and recalculates totals', function () {
     // 1. Add variant to cart
     $this->graphQL(/** @lang GraphQL */ '
         mutation ($variantId: ID!) {
-            addProductVariantToCart(productVariantID: $variantId, quantity: 1) {
+            addProductVariantToCart(productVariantId: $variantId, quantity: 1) {
                 id
             }
         }
@@ -171,7 +171,7 @@ it('fails to select shipping option if shipping address is missing', function ()
     // Add variant to cart
     $this->graphQL(/** @lang GraphQL */ '
         mutation ($variantId: ID!) {
-            addProductVariantToCart(productVariantID: $variantId, quantity: 1) {
+            addProductVariantToCart(productVariantId: $variantId, quantity: 1) {
                 id
             }
         }

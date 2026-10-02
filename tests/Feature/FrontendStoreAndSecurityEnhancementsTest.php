@@ -169,7 +169,7 @@ it('supports headless cart operations with explicit cartId', function () {
     // 3. Add item with cartId
     $addResponse = $this->graphQL(/** @lang GraphQL */ '
         mutation ($cartId: ID!, $variantId: ID!) {
-            addProductVariantToCart(cartId: $cartId, productVariantID: $variantId, quantity: 2) {
+            addProductVariantToCart(cartId: $cartId, productVariantId: $variantId, quantity: 2) {
                 id
                 totalQuantity
                 subTotal
@@ -383,7 +383,7 @@ it('prevents modifying a cart after its order has been completed', function () {
 
     $response = $this->graphQL(/** @lang GraphQL */ '
         mutation ($cartId: ID!, $variantId: ID!) {
-            addProductVariantToCart(cartId: $cartId, productVariantID: $variantId, quantity: 1) {
+            addProductVariantToCart(cartId: $cartId, productVariantId: $variantId, quantity: 1) {
                 id
             }
         }
@@ -423,7 +423,7 @@ it('enforces stock availability limit on updateCartLine', function () {
 
     $response = $this->graphQL(/** @lang GraphQL */ '
         mutation ($cartId: ID!, $cartLineId: ID!, $qty: Int!) {
-            updateCartLine(cartId: $cartId, cartLineID: $cartLineId, quantity: $qty) {
+            updateCartLine(cartId: $cartId, cartLineId: $cartLineId, quantity: $qty) {
                 id
             }
         }
@@ -1008,7 +1008,7 @@ it('enforces total cart line stock limit across multiple additions', function ()
     // First addition: 3 items (allowed, 3 <= 5)
     $res1 = $this->graphQL(/** @lang GraphQL */ '
         mutation ($cartId: ID!, $variantId: ID!, $quantity: Int!) {
-            addProductVariantToCart(cartId: $cartId, productVariantID: $variantId, quantity: $quantity) {
+            addProductVariantToCart(cartId: $cartId, productVariantId: $variantId, quantity: $quantity) {
                 id
                 lines {
                     id
@@ -1027,7 +1027,7 @@ it('enforces total cart line stock limit across multiple additions', function ()
     // Second addition: another 3 items (cumulative 6 > 5 -> should fail)
     $res2 = $this->graphQL(/** @lang GraphQL */ '
         mutation ($cartId: ID!, $variantId: ID!, $quantity: Int!) {
-            addProductVariantToCart(cartId: $cartId, productVariantID: $variantId, quantity: $quantity) {
+            addProductVariantToCart(cartId: $cartId, productVariantId: $variantId, quantity: $quantity) {
                 id
             }
         }
@@ -1042,7 +1042,7 @@ it('enforces total cart line stock limit across multiple additions', function ()
     // Third addition: 2 items (cumulative 3 + 2 = 5 <= 5 -> should succeed)
     $res3 = $this->graphQL(/** @lang GraphQL */ '
         mutation ($cartId: ID!, $variantId: ID!, $quantity: Int!) {
-            addProductVariantToCart(cartId: $cartId, productVariantID: $variantId, quantity: $quantity) {
+            addProductVariantToCart(cartId: $cartId, productVariantId: $variantId, quantity: $quantity) {
                 id
                 lines {
                     id

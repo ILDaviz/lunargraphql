@@ -4,7 +4,6 @@ extend type Mutation {
     """
     createOrderFromCart(
         cartId: ID @globalId(decode: ID)
-        cartID: ID @globalId(decode: ID)
     ): Order!
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@createOrderFromCart")
     @throttle(

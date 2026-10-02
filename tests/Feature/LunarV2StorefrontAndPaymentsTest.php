@@ -52,6 +52,18 @@ beforeEach(function () {
     ]);
 });
 
+it('uses only cartId for createOrderFromCart', function () {
+    $response = $this->graphQL(/** @lang GraphQL */ '
+        mutation {
+            createOrderFromCart(cartID: "legacy-id") {
+                id
+            }
+        }
+    ');
+
+    expect($response->json('errors.0.message'))->toContain('Unknown argument "cartID"');
+});
+
 it('queries Lunar v2 payment providers with id, handle, driver, and enabled fields', function () {
     $response = $this->graphQL(/** @lang GraphQL */ '
         query {
@@ -80,7 +92,7 @@ it('authorizes payment directly from cart via Lunar v2 Payments driver using aut
     // 1. Add item to cart
     $addResponse = $this->graphQL(/** @lang GraphQL */ '
         mutation ($variantId: ID!) {
-            addProductVariantToCart(productVariantID: $variantId, quantity: 1) {
+            addProductVariantToCart(productVariantId: $variantId, quantity: 1) {
                 id
                 total
             }
@@ -153,7 +165,7 @@ it('initiates and authorizes offline payment via initiatePayment with provider c
     // 1. Add item to cart
     $addResponse = $this->graphQL(/** @lang GraphQL */ '
         mutation ($variantId: ID!) {
-            addProductVariantToCart(productVariantID: $variantId, quantity: 1) {
+            addProductVariantToCart(productVariantId: $variantId, quantity: 1) {
                 id
             }
         }

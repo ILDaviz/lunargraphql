@@ -42,7 +42,7 @@ extend type Mutation {
     """
     addProductVariantToCart(
         cartId: ID @globalId(decode: ID)
-        productVariantID: ID!
+        productVariantId: ID!
         quantity: Int = 1
         meta: String
     ): Cart!
@@ -53,7 +53,7 @@ extend type Mutation {
     """
     updateCartLine(
         cartId: ID @globalId(decode: ID)
-        cartLineID: ID!
+        cartLineId: ID!
         quantity: Int!
         meta: String
     ): Cart!
@@ -64,7 +64,7 @@ extend type Mutation {
     """
     removeCartLine(
         cartId: ID @globalId(decode: ID)
-        cartLineID: ID!
+        cartLineId: ID!
     ): Cart!
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@removeCartLineMutation")
 

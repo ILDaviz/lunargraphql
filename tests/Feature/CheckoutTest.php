@@ -55,7 +55,7 @@ it('can create an order from cart', function () {
     // 1. Add item to cart
     $this->graphQL(/** @lang GraphQL */ '
         mutation ($variantId: ID!) {
-            addProductVariantToCart(productVariantID: $variantId, quantity: 1) {
+            addProductVariantToCart(productVariantId: $variantId, quantity: 1) {
                 id
             }
         }

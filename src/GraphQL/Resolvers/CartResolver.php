@@ -35,7 +35,7 @@ class CartResolver
 
     public function resolveCart(array $args = []): Cart
     {
-        $cartId = $this->extractIdFromArgs($args, 'cartId') ?? $this->extractIdFromArgs($args, 'cartID');
+        $cartId = $this->extractIdFromArgs($args, 'cartId');
         $user = $this->getUserLoggedIn();
 
         if ($cartId !== null) {
@@ -131,7 +131,7 @@ class CartResolver
         $this->assertCartNotCompleted($cart);
 
         /** @var ProductVariant|null $productVariant */
-        $productVariant = $this->getModelFromGlobalId($args, 'productVariantID', ProductVariant::class);
+        $productVariant = $this->getModelFromGlobalId($args, 'productVariantId', ProductVariant::class);
         $quantity = (int) Arr::get($args, 'quantity', 1);
 
         throw_unless($productVariant, CartException::productVariantNotFound());
@@ -187,7 +187,7 @@ class CartResolver
         $cart = $this->resolveCart($args);
         $this->assertCartNotCompleted($cart);
 
-        $lineId = $this->extractIdFromArgs($args, 'cartLineID');
+        $lineId = $this->extractIdFromArgs($args, 'cartLineId');
         $quantity = (int) Arr::get($args, 'quantity');
 
         $cartLine = $cart->lines()->find($lineId);
@@ -230,7 +230,7 @@ class CartResolver
         $cart = $this->resolveCart($args);
         $this->assertCartNotCompleted($cart);
 
-        $lineId = $this->extractIdFromArgs($args, 'cartLineID');
+        $lineId = $this->extractIdFromArgs($args, 'cartLineId');
 
         $cartLine = $cart->lines()->find($lineId);
         throw_unless($cartLine, CartException::cartLineNotFound());

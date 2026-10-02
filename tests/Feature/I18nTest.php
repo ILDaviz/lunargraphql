@@ -70,7 +70,7 @@ it('returns localized English error messages in GraphQL mutations', function () 
     // 1. Exceed stock -> returns English translation
     $resStock = $this->graphQL(/** @lang GraphQL */ '
         mutation ($cartId: ID!, $variantId: ID!) {
-            addProductVariantToCart(cartId: $cartId, productVariantID: $variantId, quantity: 10) {
+            addProductVariantToCart(cartId: $cartId, productVariantId: $variantId, quantity: 10) {
                 id
             }
         }
@@ -85,7 +85,7 @@ it('returns localized English error messages in GraphQL mutations', function () 
     // 2. Non-existent product variant -> returns English translation
     $resNotFound = $this->graphQL(/** @lang GraphQL */ '
         mutation ($cartId: ID!) {
-            addProductVariantToCart(cartId: $cartId, productVariantID: 999999, quantity: 1) {
+            addProductVariantToCart(cartId: $cartId, productVariantId: 999999, quantity: 1) {
                 id
             }
         }

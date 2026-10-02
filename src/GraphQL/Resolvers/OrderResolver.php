@@ -50,7 +50,7 @@ class OrderResolver
 
     public function createOrderFromCart(mixed $root, array $args): Order
     {
-        $cartId = $this->extractIdFromArgs($args, 'cartID') ?? $this->extractIdFromArgs($args, 'cartId');
+        $cartId = $this->extractIdFromArgs($args, 'cartId');
 
         /** @var Cart|null $cart */
         $cart = $this->findCart($cartId);
@@ -264,7 +264,7 @@ class OrderResolver
             $this->authorizeOrderAccess($order);
             $this->assertOrderNotPaid($order);
         } else {
-            $cartId = $this->extractIdFromArgs($args, 'cartId') ?? $this->extractIdFromArgs($args, 'cartID');
+            $cartId = $this->extractIdFromArgs($args, 'cartId');
             $cart = $this->findCart($cartId);
             throw_unless($cart, CartException::cartNotFound());
             $this->authorizeCartAccess($cart, $cartId);
@@ -337,7 +337,7 @@ class OrderResolver
             $this->authorizeOrderAccess($order);
             $this->assertOrderNotPaid($order);
         } else {
-            $cartId = $this->extractIdFromArgs($args, 'cartId') ?? $this->extractIdFromArgs($args, 'cartID');
+            $cartId = $this->extractIdFromArgs($args, 'cartId');
             $cart = $this->findCart($cartId);
             throw_unless($cart, CartException::cartNotFound());
             $this->authorizeCartAccess($cart, $cartId);

@@ -281,7 +281,7 @@ class UserResolver
 
     protected function associateCartWithUser(mixed $user, array $args): void
     {
-        $cartId = $this->extractIdFromArgs($args, 'cartId') ?? $this->extractIdFromArgs($args, 'cartID');
+        $cartId = $this->extractIdFromArgs($args, 'cartId');
 
         /** @var Cart|null $cart */
         $cart = $cartId
