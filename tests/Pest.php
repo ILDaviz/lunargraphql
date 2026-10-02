@@ -3,7 +3,7 @@
 use Illuminate\Contracts\Auth\Authenticatable;
 use Lunargraphql\Tests\TestCase;
 
-uses(TestCase::class)->in('Feature', 'Unit', 'Types');
+uses(TestCase::class)->in('Feature', 'Unit', 'Types', 'e2e');
 
 function actingAs(Authenticatable $user, ?string $driver = null): TestCase
 {
