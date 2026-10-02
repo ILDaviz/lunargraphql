@@ -20,8 +20,8 @@
         }
     ],
     "require": {
-        "php": "^8.2|^8.3|^8.4",
-        "lunarphp/core": "^2.0.0-alpha.6|^2.0",
+        "php": "^8.4",
+        "lunarphp/core": "2.0.0-alpha.6",
         "nuwave/lighthouse": "^6.0",
         "spatie/laravel-package-tools": "^1.16",
         "laravel/sanctum": "^4.0"

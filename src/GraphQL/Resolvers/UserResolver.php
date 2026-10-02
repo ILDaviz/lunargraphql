@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
+use Lunar\Core\Contracts\LunarUser;
 use Lunar\Core\Facades\CartSession;
 use Lunar\Core\Models\Cart;
 use Lunar\Core\Models\Customer;
@@ -283,7 +284,9 @@ class UserResolver
         $cartId = $this->extractIdFromArgs($args, 'cartId') ?? $this->extractIdFromArgs($args, 'cartID');
 
         /** @var Cart|null $cart */
-        $cart = $cartId ? Cart::find($cartId) : CartSession::current();
+        $cart = $cartId
+            ? (is_numeric($cartId) ? Cart::find($cartId) : Cart::where('public_id', $cartId)->first())
+            : CartSession::current();
 
         if (! $cart) {
             return;
@@ -294,8 +297,15 @@ class UserResolver
             return;
         }
 
+        if ($cartId !== null && is_numeric($cartId)) {
+            $sessionCartId = session(config('lunar.cart_session.session_key'));
+            if ((int) $sessionCartId !== (int) $cart->id) {
+                return;
+            }
+        }
+
         try {
-            if (method_exists(CartSession::class, 'associate')) {
+            if ($user instanceof LunarUser) {
                 CartSession::associate($cart, $user, 'merge');
             } else {
                 $cart->user_id = $user->id;

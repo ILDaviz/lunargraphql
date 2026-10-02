@@ -99,8 +99,8 @@ beforeEach(function () {
 
 it('can query order with lifecycle status, cancellation flags, and formatted totals', function () {
     $response = $this->graphQL(/** @lang GraphQL */ '
-        query GetOrder($id: ID!) {
-            order(id: $id) {
+        query GetOrder($ref: String!, $email: String!) {
+            guestOrder(reference: $ref, email: $email) {
                 id
                 reference
                 isOpen
@@ -122,11 +122,12 @@ it('can query order with lifecycle status, cancellation flags, and formatted tot
             }
         }
     ', [
-        'id' => $this->order->id,
+        'ref' => 'ORD-GUEST-12345',
+        'email' => 'mario.rossi@example.com',
     ]);
 
     $response->assertSuccessful();
-    $data = $response->json('data.order');
+    $data = $response->json('data.guestOrder');
 
     expect($data['reference'])->toBe('ORD-GUEST-12345')
         ->and($data['isOpen'])->toBeTrue()
@@ -143,8 +144,8 @@ it('can query order with lifecycle status, cancellation flags, and formatted tot
 
 it('can query order with line subsets like shippingLines and productLines', function () {
     $response = $this->graphQL(/** @lang GraphQL */ '
-        query GetOrder($id: ID!) {
-            order(id: $id) {
+        query GetOrder($ref: String!, $email: String!) {
+            guestOrder(reference: $ref, email: $email) {
                 id
                 lines {
                     id
@@ -162,11 +163,12 @@ it('can query order with line subsets like shippingLines and productLines', func
             }
         }
     ', [
-        'id' => $this->order->id,
+        'ref' => 'ORD-GUEST-12345',
+        'email' => 'mario.rossi@example.com',
     ]);
 
     $response->assertSuccessful();
-    $data = $response->json('data.order');
+    $data = $response->json('data.guestOrder');
 
     expect($data['lines'])->toHaveCount(2)
         ->and($data['productLines'])->toHaveCount(1)
@@ -177,8 +179,8 @@ it('can query order with line subsets like shippingLines and productLines', func
 
 it('can query order lines with formatted price strings', function () {
     $response = $this->graphQL(/** @lang GraphQL */ '
-        query GetOrder($id: ID!) {
-            order(id: $id) {
+        query GetOrder($ref: String!, $email: String!) {
+            guestOrder(reference: $ref, email: $email) {
                 id
                 lines {
                     id
@@ -195,11 +197,12 @@ it('can query order lines with formatted price strings', function () {
             }
         }
     ', [
-        'id' => $this->order->id,
+        'ref' => 'ORD-GUEST-12345',
+        'email' => 'mario.rossi@example.com',
     ]);
 
     $response->assertSuccessful();
-    $lines = $response->json('data.order.lines');
+    $lines = $response->json('data.guestOrder.lines');
 
     expect($lines[0]['requiresShipping'])->toBeTrue()
         ->and($lines[0]['requiresFulfilment'])->toBeTrue()
@@ -251,4 +254,18 @@ it('rejects guest order query when email does not match', function () {
     $data = $response->json('data.guestOrder');
 
     expect($data)->toBeNull();
+});
+
+it('does not expose guest orders by reference without email verification or session ownership', function () {
+    $response = $this->graphQL(/** @lang GraphQL */ '
+        query {
+            orderByReference(reference: "ORD-GUEST-12345") {
+                reference
+                total
+            }
+        }
+    ');
+
+    expect($response->json('errors'))->not->toBeNull()
+        ->and($response->json('data.orderByReference'))->toBeNull();
 });

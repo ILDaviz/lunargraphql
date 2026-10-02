@@ -4,7 +4,10 @@ namespace Lunargraphql\GraphQL\Builders;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 use Lunar\Core\Models\Collection;
+use Lunar\Core\Models\Currency;
 use Lunar\Core\Models\Price;
 use Lunar\Core\Models\Product;
 use Lunar\Core\Models\ProductOption;
@@ -18,16 +21,22 @@ class CatalogBuilder
 
     public function filterCatalog(Builder $builder, mixed $value = null, mixed $root = null, array $args = []): Builder
     {
+        // PricingManager still applies Lunar's customer-group and pricing pipelines,
+        // while loading all selected variants' prices in batches avoids per-product queries.
+        $builder->with(['variants.prices.currency', 'variants.prices.priceable']);
+
         $filter = is_array($value) && ! empty($value)
             ? $value
             : (Arr::get($args, 'filter') ?? (is_array($value) ? $value : []));
 
         // Status filter (defaults to published for public storefront security)
         $status = Arr::get($filter, 'status');
-        if ($status && $status !== 'all') {
-            $builder->where('status', $status);
-        } elseif (! $status) {
+        $user = Auth::guard('sanctum')->user() ?? Auth::user();
+        $canViewUnpublished = Gate::forUser($user)->allows('view-unpublished-catalog');
+        if (! $canViewUnpublished) {
             $builder->where('status', 'published');
+        } elseif ($status && $status !== 'all') {
+            $builder->where('status', $status);
         }
 
         if (empty($filter)) {
@@ -40,6 +49,8 @@ class CatalogBuilder
 
         if ($sortBy) {
             if ($sortBy === 'price') {
+                $currencyCode = Arr::get($filter, 'currency');
+                $currency = $this->resolveCurrency($currencyCode);
                 $priceTable = (new Price)->getTable();
                 $variantTable = (new ProductVariant)->getTable();
                 $productTable = (new Product)->getTable();
@@ -48,11 +59,12 @@ class CatalogBuilder
                     Price::select("{$priceTable}.price")
                         ->join($variantTable, "{$variantTable}.id", '=', "{$priceTable}.priceable_id")
                         ->whereColumn("{$variantTable}.product_id", "{$productTable}.id")
+                        ->where("{$variantTable}.enabled", true)
                         ->where("{$priceTable}.priceable_type", (new ProductVariant)->getMorphClass())
-                        ->where(function ($q) use ($priceTable) {
-                            $q->where("{$priceTable}.min_quantity", 1)
-                                ->orWhereNull("{$priceTable}.min_quantity");
-                        })
+                        ->where("{$priceTable}.min_quantity", 1)
+                        ->whereNull("{$priceTable}.customer_group_id")
+                        ->when($currency, fn (Builder $query) => $query->where("{$priceTable}.currency_id", $currency->id))
+                        ->when($currencyCode !== null && ! $currency, fn (Builder $query) => $query->whereRaw('1 = 0'))
                         ->orderBy("{$priceTable}.price", $sortDir)
                         ->limit(1),
                     $sortDir
@@ -125,24 +137,32 @@ class CatalogBuilder
             $min = Arr::get($priceRange, 'min');
             $max = Arr::get($priceRange, 'max');
 
-            $builder->whereHas('prices', function (Builder $query) use ($min, $max) {
-                $table = $query->getModel()->getTable();
+            $currencyCode = Arr::get($filter, 'currency');
+            $currency = $this->resolveCurrency($currencyCode);
+            $decimalPlaces = $currency?->decimal_places ?? 2;
+            if ($currencyCode !== null && ! $currency) {
+                $builder->whereRaw('1 = 0');
+            } else {
+                $builder->whereHas('variants', function (Builder $variantQuery) use ($min, $max, $currency, $decimalPlaces) {
+                    $variantQuery->where('enabled', true)->whereHas('prices', function (Builder $query) use ($min, $max, $currency, $decimalPlaces) {
+                        $table = $query->getModel()->getTable();
 
-                $query->where(function ($q) use ($table) {
-                    $q->where("{$table}.min_quantity", 1)
-                        ->orWhereNull("{$table}.min_quantity");
+                        $query->where("{$table}.min_quantity", 1)
+                            ->whereNull("{$table}.customer_group_id")
+                            ->when($currency, fn (Builder $priceQuery) => $priceQuery->where("{$table}.currency_id", $currency->id));
+
+                        if ($min !== null) {
+                            $minVal = (int) round($min * (10 ** $decimalPlaces));
+                            $query->where("{$table}.price", '>=', $minVal);
+                        }
+
+                        if ($max !== null) {
+                            $maxVal = (int) round($max * (10 ** $decimalPlaces));
+                            $query->where("{$table}.price", '<=', $maxVal);
+                        }
+                    });
                 });
-
-                if ($min !== null) {
-                    $minVal = (int) round($min * 100);
-                    $query->where("{$table}.price", '>=', $minVal);
-                }
-
-                if ($max !== null) {
-                    $maxVal = (int) round($max * 100);
-                    $query->where("{$table}.price", '<=', $maxVal);
-                }
-            });
+            }
         }
 
         // Option values filter (variants matching specific option values)
@@ -174,6 +194,17 @@ class CatalogBuilder
         }
 
         return $builder;
+    }
+
+    protected function resolveCurrency(?string $currencyCode): ?Currency
+    {
+        if ($currencyCode !== null) {
+            return Currency::query()->where('code', $currencyCode)->where('enabled', true)->first();
+        }
+
+        $currency = Currency::getDefault();
+
+        return $currency?->enabled ? $currency : null;
     }
 
     public function resolveCollectionProducts(mixed $root, array $args): Builder

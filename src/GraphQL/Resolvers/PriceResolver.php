@@ -4,6 +4,8 @@ namespace Lunargraphql\GraphQL\Resolvers;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
+use Lunar\Core\DataObjects\PriceValue;
+use Lunar\Core\Exceptions\MissingCurrencyPriceException;
 use Lunar\Core\Facades\CartSession;
 use Lunar\Core\Models\Currency;
 use Lunar\Core\Models\Price;
@@ -71,7 +73,9 @@ class PriceResolver
     {
         try {
             if (method_exists($model, 'priceIncTax')) {
-                return (int) $model->priceIncTax();
+                $price = $model->priceIncTax();
+
+                return $price instanceof PriceValue ? $price->value : (int) $price;
             }
         } catch (\Throwable) {
             // Fallback if priceable is not loaded or missing
@@ -84,7 +88,9 @@ class PriceResolver
     {
         try {
             if (method_exists($model, 'priceExTax')) {
-                return (int) $model->priceExTax();
+                $price = $model->priceExTax();
+
+                return $price instanceof PriceValue ? $price->value : (int) $price;
             }
         } catch (\Throwable) {
             // Fallback if priceable is not loaded or missing
@@ -95,87 +101,36 @@ class PriceResolver
 
     public function resolveVariantPrice(ProductVariant $variant, array $args): ?Price
     {
-        $currencyCode = Arr::get($args, 'currency') ?? Arr::get($args, 'currencyCode');
-        $currency = ($currencyCode ? Currency::where('code', $currencyCode)->first() : null)
-            ?? CartSession::getCurrency()
-            ?? Currency::getDefault()
-            ?? Currency::first();
-
-        // 1. If basePrices relation is already eager-loaded, use in-memory collection
-        if ($variant->relationLoaded('basePrices') && $variant->basePrices->isNotEmpty()) {
-            if ($currency) {
-                $matched = $variant->basePrices->first(fn ($p) => (int) $p->currency_id === (int) $currency->id);
-                if ($matched) {
-                    return $matched;
-                }
-            }
-
-            return $variant->basePrices->first();
-        }
-
-        // 2. If prices relation is already loaded, match base price in-memory
-        if ($variant->relationLoaded('prices') && $variant->prices->isNotEmpty()) {
-            if ($currency) {
-                $matched = $variant->prices->first(fn ($p) => (int) $p->currency_id === (int) $currency->id && (int) $p->min_quantity === 1 && $p->customer_group_id === null)
-                    ?? $variant->prices->first(fn ($p) => (int) $p->currency_id === (int) $currency->id && (int) $p->min_quantity === 1);
-                if ($matched) {
-                    return $matched;
-                }
-            }
-
-            return $variant->prices->first(fn ($p) => (int) $p->min_quantity === 1 && $p->customer_group_id === null)
-                ?? $variant->prices->first();
+        $currency = $this->resolveCurrency($args);
+        if (! $currency) {
+            return null;
         }
 
         try {
-            if ($currency && method_exists($variant, 'pricing')) {
-                $pricing = $variant->pricing()->currency($currency)->get();
-                if ($pricing && ($pricing->matched ?? $pricing->base)) {
-                    return $pricing->matched ?? $pricing->base;
-                }
-            }
-        } catch (\Throwable) {
-            // Fallback to base prices relation or prices
-        }
+            $pricing = $variant->pricing()->currency($currency)->get();
 
-        if ($currency) {
-            $matched = $variant->basePrices()->where('currency_id', $currency->id)->first()
-                ?? $variant->prices()->where('currency_id', $currency->id)->first();
-            if ($matched) {
-                return $matched;
-            }
+            return $pricing->matched ?? $pricing->base;
+        } catch (MissingCurrencyPriceException|\ErrorException) {
+            return null;
         }
-
-        return $variant->basePrices()->first() ?? $variant->prices()->first();
     }
 
     public function resolveProductPrice(Product $product, array $args): ?Price
     {
-        $currencyCode = Arr::get($args, 'currency') ?? Arr::get($args, 'currencyCode');
-        $currency = ($currencyCode ? Currency::where('code', $currencyCode)->first() : null)
-            ?? CartSession::getCurrency()
-            ?? Currency::getDefault()
-            ?? Currency::first();
-
-        // 1. If prices relation is already loaded directly on product, match price in-memory
-        if ($product->relationLoaded('prices') && $product->prices->isNotEmpty()) {
-            if ($currency) {
-                $matched = $product->prices->first(fn ($p) => (int) $p->currency_id === (int) $currency->id && (int) $p->min_quantity === 1 && $p->customer_group_id === null)
-                    ?? $product->prices->first(fn ($p) => (int) $p->currency_id === (int) $currency->id && (int) $p->min_quantity === 1)
-                    ?? $product->prices->first(fn ($p) => (int) $p->currency_id === (int) $currency->id);
-                if ($matched) {
-                    return $matched;
-                }
-            }
-
-            return $product->prices->first(fn ($p) => (int) $p->min_quantity === 1 && $p->customer_group_id === null)
-                ?? $product->prices->first();
-        }
-
         $variant = $product->relationLoaded('variants')
-            ? $product->variants->first()
-            : ($product->variant ?? $product->variants()->first());
+            ? $product->variants->first(fn (ProductVariant $variant) => $variant->enabled)
+            : ($product->variants()->where('enabled', true)->first());
 
         return $variant ? $this->resolveVariantPrice($variant, $args) : null;
+    }
+
+    protected function resolveCurrency(array $args): ?Currency
+    {
+        $currencyCode = Arr::get($args, 'currency') ?? Arr::get($args, 'currencyCode');
+        if ($currencyCode !== null) {
+            return Currency::where('code', $currencyCode)->where('enabled', true)->first();
+        }
+
+        return CartSession::getCurrency() ?? Currency::getDefault();
     }
 }

@@ -2,9 +2,11 @@
 
 namespace Lunargraphql\GraphQL\Resolvers;
 
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 use Lunar\Core\Models\Brand;
 use Lunar\Core\Models\Channel;
 use Lunar\Core\Models\Collection as LunarCollection;
@@ -19,6 +21,36 @@ use Lunargraphql\Traits\WithGlobalID;
 class CatalogResolver
 {
     use WithGlobalID;
+
+    protected function canViewUnpublished(): bool
+    {
+        $user = Auth::guard('sanctum')->user() ?? Auth::user();
+
+        return Gate::forUser($user)->allows('view-unpublished-catalog');
+    }
+
+    public function resolveVariants(Product $product): EloquentCollection
+    {
+        $variants = $product->relationLoaded('variants')
+            ? $product->variants
+            : $product->variants()->get();
+
+        if (! $this->canViewUnpublished()) {
+            return $variants->filter(fn (ProductVariant $variant) => $variant->enabled)->values();
+        }
+
+        return $variants;
+    }
+
+    public function resolveCollectionProductList(LunarCollection $collection): EloquentCollection
+    {
+        $builder = $collection->products()->getQuery();
+        if (! $this->canViewUnpublished()) {
+            $builder->where('status', 'published');
+        }
+
+        return $builder->with(['variants.prices.currency', 'variants.prices.priceable'])->get();
+    }
 
     public function productQuery(mixed $root, array $args): ?Product
     {
@@ -37,11 +69,8 @@ class CatalogResolver
         }
 
         $status = is_object($product->status) ? (string) $product->status : $product->status;
-        if ($status !== 'published') {
-            $user = Auth::guard('sanctum')->user() ?? Auth::user();
-            if (! $user) {
-                return null;
-            }
+        if ($status !== 'published' && ! $this->canViewUnpublished()) {
+            return null;
         }
 
         return $product;
@@ -63,11 +92,8 @@ class CatalogResolver
             return null;
         }
 
-        if (! $variant->enabled) {
-            $user = Auth::guard('sanctum')->user() ?? Auth::user();
-            if (! $user) {
-                return null;
-            }
+        if ((! $variant->enabled || (string) $variant->product?->status !== 'published') && ! $this->canViewUnpublished()) {
+            return null;
         }
 
         return $variant;
@@ -94,11 +120,8 @@ class CatalogResolver
 
         if ($product) {
             $status = is_object($product->status) ? (string) $product->status : $product->status;
-            if ($status !== 'published') {
-                $user = Auth::guard('sanctum')->user() ?? Auth::user();
-                if (! $user) {
-                    return null;
-                }
+            if ($status !== 'published' && ! $this->canViewUnpublished()) {
+                return null;
             }
         }
 

@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
 use Lunar\Core\FieldTypes\Text;
 use Lunar\Core\Models\Attribute;
@@ -140,6 +141,13 @@ it('supports headless cart operations with explicit cartId', function () {
         'region_id' => $this->defaultRegion->id,
     ]);
 
+    $legacyResponse = $this->graphQL(/** @lang GraphQL */ '
+        query ($cartId: ID!) {
+            getCart(cartId: $cartId) { id }
+        }
+    ', ['cartId' => $cart->id]);
+    expect($legacyResponse->json('errors'))->not->toBeNull();
+
     // 2. Fetch cart by cartId without relying on PHP session
     $response = $this->graphQL(/** @lang GraphQL */ '
         query ($cartId: ID!) {
@@ -150,11 +158,13 @@ it('supports headless cart operations with explicit cartId', function () {
             }
         }
     ', [
-        'cartId' => $cart->id,
+        'cartId' => base64_encode('Cart:'.$cart->public_id),
     ]);
 
     $response->assertSuccessful();
     expect($response->json('data.getCart.totalQuantity'))->toBe(0);
+    expect(base64_decode($response->json('data.getCart.id'), true))
+        ->toBe('Cart:'.$cart->public_id);
 
     // 3. Add item with cartId
     $addResponse = $this->graphQL(/** @lang GraphQL */ '
@@ -166,7 +176,7 @@ it('supports headless cart operations with explicit cartId', function () {
             }
         }
     ', [
-        'cartId' => $cart->id,
+        'cartId' => base64_encode('Cart:'.$cart->public_id),
         'variantId' => $this->variant->id,
     ]);
 
@@ -204,7 +214,7 @@ it('associates guest cart with user upon login', function () {
     ', [
         'email' => 'cartowner@example.com',
         'password' => 'secretPassword123',
-        'cartId' => $cart->id,
+        'cartId' => base64_encode('Cart:'.$cart->public_id),
     ]);
 
     $response->assertSuccessful();
@@ -245,14 +255,12 @@ it('can query payment providers and initiate payment intent', function () {
             }
         }
     ', [
-        'cartId' => $cart->id,
+        'cartId' => base64_encode('Cart:'.$cart->public_id),
     ]);
 
     $intentResponse->assertSuccessful();
-    $intent = $intentResponse->json('data.initiatePayment');
-    expect($intent['success'])->toBeTrue();
-    expect($intent['clientSecret'])->toStartWith('pi_');
-    expect($intent['status'])->toBe('requires_payment_method');
+    expect($intentResponse->json('errors'))->not->toBeNull()
+        ->and($intentResponse->json('data.initiatePayment'))->toBeNull();
 });
 
 it('filters out draft products by default in catalog query', function () {
@@ -345,7 +353,7 @@ it('prevents unauthenticated guest from accessing a registered user cart via car
             }
         }
     ', [
-        'cartId' => $cart->id,
+        'cartId' => base64_encode('Cart:'.$cart->public_id),
     ]);
 
     expect($response->json('errors'))->not->toBeNull();
@@ -380,7 +388,7 @@ it('prevents modifying a cart after its order has been completed', function () {
             }
         }
     ', [
-        'cartId' => $cart->id,
+        'cartId' => base64_encode('Cart:'.$cart->public_id),
         'variantId' => $this->variant->id,
     ]);
 
@@ -420,7 +428,7 @@ it('enforces stock availability limit on updateCartLine', function () {
             }
         }
     ', [
-        'cartId' => $cart->id,
+        'cartId' => base64_encode('Cart:'.$cart->public_id),
         'cartLineId' => $cartLine->id,
         'qty' => 10,
     ]);
@@ -472,7 +480,7 @@ it('can assign saved customer address to cart and save new address during checko
             }
         }
     ', [
-        'cartId' => $cart->id,
+        'cartId' => base64_encode('Cart:'.$cart->public_id),
         'addressId' => $customerAddress->id,
     ]);
 
@@ -491,7 +499,7 @@ it('can assign saved customer address to cart and save new address during checko
             }
         }
     ', [
-        'cartId' => $cart->id,
+        'cartId' => base64_encode('Cart:'.$cart->public_id),
         'address' => [
             'countryId' => $this->defaultCountry->id,
             'firstName' => 'Mario',
@@ -584,6 +592,8 @@ it('supports querying product and variant price in specific currency', function 
                 price(currency: "USD") {
                     price
                     priceFormatted
+                    priceIncTax
+                    priceExTax
                 }
             }
             productVariant(id: $variantId) {
@@ -591,6 +601,8 @@ it('supports querying product and variant price in specific currency', function 
                 price(currency: "USD") {
                     price
                     priceFormatted
+                    priceIncTax
+                    priceExTax
                 }
             }
         }
@@ -602,6 +614,10 @@ it('supports querying product and variant price in specific currency', function 
     $response->assertSuccessful();
     expect($response->json('data.product.price.price'))->toBe(6000);
     expect($response->json('data.productVariant.price.price'))->toBe(6000);
+    expect($response->json('data.product.price.priceIncTax'))->toBeInt()
+        ->and($response->json('data.product.price.priceExTax'))->toBeInt()
+        ->and($response->json('data.productVariant.price.priceIncTax'))->toBeInt()
+        ->and($response->json('data.productVariant.price.priceExTax'))->toBeInt();
 });
 
 it('can paginate products directly on collection type via paginatedProducts', function () {
@@ -616,11 +632,18 @@ it('can paginate products directly on collection type via paginatedProducts', fu
     ]);
 
     $collection->products()->attach($this->product);
+    $draftProduct = Product::create([
+        'product_type_id' => $this->productType->id,
+        'status' => 'draft',
+        'name' => ['en' => 'Hidden Collection Product'],
+    ]);
+    $collection->products()->attach($draftProduct);
 
     $response = $this->graphQL(/** @lang GraphQL */ '
         query ($collectionId: ID!) {
             collection(id: $collectionId) {
                 id
+                products { name }
                 paginatedProducts(first: 5) {
                     data {
                         id
@@ -640,6 +663,8 @@ it('can paginate products directly on collection type via paginatedProducts', fu
     $response->assertSuccessful();
     expect($response->json('data.collection.paginatedProducts.paginatorInfo.total'))->toBe(1);
     expect($response->json('data.collection.paginatedProducts.data.0.name'))->toBe('Test Sneaker');
+    expect($response->json('data.collection.products'))->toHaveCount(1)
+        ->and($response->json('data.collection.products.0.name'))->toBe('Test Sneaker');
 });
 
 it('prevents guests from querying draft products via product query and productBySlug', function () {
@@ -691,6 +716,7 @@ it('prevents guests from querying draft products via product query and productBy
         'email' => 'admin@example.com',
         'password' => Hash::make('password123'),
     ]);
+    Gate::define('view-unpublished-catalog', fn ($actor) => $actor->is($user));
 
     $authResponse = $this->actingAs($user, 'sanctum')->graphQL(/** @lang GraphQL */ '
         query ($id: ID!) {
@@ -733,7 +759,16 @@ it('prevents guests from querying disabled product variants via productVariant q
 });
 
 it('validates transaction amount and updates order payment_status to paid when total captured matches order total', function () {
+    $user = User::create([
+        'name' => 'Payments Operator',
+        'email' => 'payments.operator@example.com',
+        'password' => Hash::make('password123'),
+    ]);
+    $this->actingAs($user);
+    Gate::define('record-order-transaction', fn ($actor, $order) => true);
+
     $order = Order::create([
+        'user_id' => $user->id,
         'channel_id' => $this->defaultChannel->id,
         'currency_code' => $this->defaultCurrency->code,
         'sub_total' => 5000,
@@ -744,6 +779,14 @@ it('validates transaction amount and updates order payment_status to paid when t
         'payment_status' => 'pending',
         'tax_breakdown' => new TaxBreakdown,
     ]);
+
+    $externalCapture = $this->graphQL(/** @lang GraphQL */ '
+        mutation ($orderId: ID!) {
+            recordOrderTransaction(orderId: $orderId, amount: 5000, driver: "stripe") { id }
+        }
+    ', ['orderId' => $order->id]);
+    expect($externalCapture->json('errors'))->not->toBeNull()
+        ->and($externalCapture->json('errors.0.message'))->toContain('verified server-side webhook');
 
     // 1. Rejects non-positive amount
     $zeroResponse = $this->graphQL(/** @lang GraphQL */ '
@@ -773,12 +816,12 @@ it('validates transaction amount and updates order payment_status to paid when t
     expect($exceedResponse->json('errors'))->not->toBeNull();
     expect($exceedResponse->json('errors.0.message'))->toContain('cannot exceed order total');
 
-    // 3. Captures full amount and updates order payment_status to paid
+    // 3. Partial capture remains pending and cumulative captures cannot exceed total.
     $captureResponse = $this->graphQL(/** @lang GraphQL */ '
         mutation ($orderId: ID!) {
             recordOrderTransaction(
                 orderId: $orderId
-                amount: 5000
+                amount: 3000
                 type: "capture"
                 driver: "manual"
                 status: "success"
@@ -794,6 +837,22 @@ it('validates transaction amount and updates order payment_status to paid when t
     ]);
 
     $captureResponse->assertSuccessful();
+    expect((string) $order->fresh()->payment_status)->toBe('partially-paid');
+
+    $overCapture = $this->graphQL(/** @lang GraphQL */ '
+        mutation ($orderId: ID!) {
+            recordOrderTransaction(orderId: $orderId, amount: 2001) { id }
+        }
+    ', ['orderId' => $order->id]);
+    expect($overCapture->json('errors'))->not->toBeNull()
+        ->and($overCapture->json('errors.0.message'))->toContain('cannot exceed order total');
+
+    $finalCapture = $this->graphQL(/** @lang GraphQL */ '
+        mutation ($orderId: ID!) {
+            recordOrderTransaction(orderId: $orderId, amount: 2000) { id }
+        }
+    ', ['orderId' => $order->id]);
+    $finalCapture->assertSuccessful();
     expect((string) $order->fresh()->payment_status)->toBe('paid');
 
     // 4. Rejects subsequent capture if already paid
@@ -836,7 +895,7 @@ it('rejects changing currency to a disabled currency or on a completed cart', fu
             }
         }
     ', [
-        'cartId' => $cart->id,
+        'cartId' => base64_encode('Cart:'.$cart->public_id),
         'code' => 'GBP',
     ]);
 
@@ -864,7 +923,7 @@ it('rejects changing currency to a disabled currency or on a completed cart', fu
             }
         }
     ', [
-        'cartId' => $cart->id,
+        'cartId' => base64_encode('Cart:'.$cart->public_id),
         'code' => $this->defaultCurrency->code,
     ]);
 
@@ -958,7 +1017,7 @@ it('enforces total cart line stock limit across multiple additions', function ()
             }
         }
     ', [
-        'cartId' => $cart->id,
+        'cartId' => base64_encode('Cart:'.$cart->public_id),
         'variantId' => $limitedVariant->id,
         'quantity' => 3,
     ]);
@@ -973,7 +1032,7 @@ it('enforces total cart line stock limit across multiple additions', function ()
             }
         }
     ', [
-        'cartId' => $cart->id,
+        'cartId' => base64_encode('Cart:'.$cart->public_id),
         'variantId' => $limitedVariant->id,
         'quantity' => 3,
     ]);
@@ -992,7 +1051,7 @@ it('enforces total cart line stock limit across multiple additions', function ()
             }
         }
     ', [
-        'cartId' => $cart->id,
+        'cartId' => base64_encode('Cart:'.$cart->public_id),
         'variantId' => $limitedVariant->id,
         'quantity' => 2,
     ]);
@@ -1027,7 +1086,7 @@ it('prevents user from hijacking another user cart upon login or registration', 
         'name' => 'Attacker Beta',
         'email' => 'attacker@example.com',
         'password' => 'password123',
-        'cartId' => $cartA->id,
+        'cartId' => base64_encode('Cart:'.$cartA->public_id),
     ]);
 
     $response->assertSuccessful();
@@ -1211,7 +1270,7 @@ it('rejects empty coupon code in applyCouponToCart', function () {
             }
         }
     ', [
-        'cartId' => $cart->id,
+        'cartId' => base64_encode('Cart:'.$cart->public_id),
     ]);
 
     expect($response->json('errors'))->not->toBeNull();

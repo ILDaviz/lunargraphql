@@ -75,7 +75,7 @@ it('returns localized English error messages in GraphQL mutations', function () 
             }
         }
     ', [
-        'cartId' => $cart->id,
+        'cartId' => base64_encode('Cart:'.$cart->public_id),
         'variantId' => $variant->id,
     ]);
 
@@ -90,7 +90,7 @@ it('returns localized English error messages in GraphQL mutations', function () 
             }
         }
     ', [
-        'cartId' => $cart->id,
+        'cartId' => base64_encode('Cart:'.$cart->public_id),
     ]);
 
     expect($resNotFound->json('errors.0.message'))
@@ -104,7 +104,7 @@ it('returns localized English error messages in GraphQL mutations', function () 
             }
         }
     ', [
-        'cartId' => $cart->id,
+        'cartId' => base64_encode('Cart:'.$cart->public_id),
     ]);
 
     expect($resCoupon->json('errors.0.message'))

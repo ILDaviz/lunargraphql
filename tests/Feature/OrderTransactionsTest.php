@@ -1,13 +1,22 @@
 <?php
 
+use Illuminate\Support\Facades\Gate;
 use Lunar\Core\Models\Location;
 use Lunar\Core\Models\Order;
 use Lunar\Core\Models\Product;
 use Lunar\Core\Models\ProductType;
 use Lunar\Core\Models\ProductVariant;
 use Lunar\Core\ValueObjects\Cart\TaxBreakdown;
+use Lunargraphql\Tests\Models\User;
 
 beforeEach(function () {
+    $this->user = User::create([
+        'name' => 'Order Owner',
+        'email' => 'order.owner@example.com',
+        'password' => bcrypt('password123'),
+    ]);
+    $this->actingAs($this->user);
+
     $this->productType = ProductType::firstOrCreate(['handle' => 'default-type'], [
         'name' => 'Default Type',
         'status' => 'active',
@@ -31,6 +40,7 @@ beforeEach(function () {
     ]);
 
     $this->order = Order::create([
+        'user_id' => $this->user->id,
         'channel_id' => $this->defaultChannel->id,
         'currency_code' => $this->defaultCurrency->code,
         'payment_status' => 'pending',
@@ -73,13 +83,15 @@ it('can query an order by reference', function () {
 });
 
 it('can record a payment transaction on an order and query transactions', function () {
+    Gate::define('record-order-transaction', fn ($actor, $order) => true);
+
     $response = $this->graphQL(/** @lang GraphQL */ '
         mutation ($orderId: ID!) {
             recordOrderTransaction(
                 orderId: $orderId
                 amount: 6600
                 type: "capture"
-                driver: "stripe"
+                driver: "manual"
                 reference: "ch_stripe_test_123"
                 status: "success"
                 cardType: "visa"
@@ -108,7 +120,7 @@ it('can record a payment transaction on an order and query transactions', functi
 
     expect($trx['success'])->toBeTrue()
         ->and($trx['type'])->toBe('capture')
-        ->and($trx['driver'])->toBe('stripe')
+        ->and($trx['driver'])->toBe('manual')
         ->and($trx['amount'])->toBe(6600)
         ->and($trx['reference'])->toBe('ch_stripe_test_123')
         ->and($trx['status'])->toBe('success')
@@ -139,7 +151,7 @@ it('can record a payment transaction on an order and query transactions', functi
     expect($transactions)->toHaveCount(1)
         ->and($transactions[0]['amount'])->toBe(6600)
         ->and($transactions[0]['reference'])->toBe('ch_stripe_test_123')
-        ->and($transactions[0]['driver'])->toBe('stripe');
+        ->and($transactions[0]['driver'])->toBe('manual');
 });
 
 it('can query fulfilments relation on order', function () {

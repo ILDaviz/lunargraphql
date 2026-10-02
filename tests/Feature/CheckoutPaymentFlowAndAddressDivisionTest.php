@@ -431,7 +431,7 @@ it('simulates a complete checkout and payment round with separated addresses and
         ->and($orderData['billingAddress']['taxIdentifier'])->toBe('IT98765432109')
         ->and($orderData['billingAddress']['vatNo'])->toBe('IT98765432109');
 
-    // Step 6: Query payment providers & initiate payment intent
+    // Step 6: Query payment providers and authorize through Lunar's configured offline driver.
     $providersResponse = $this->graphQL(/** @lang GraphQL */ '
         query {
             paymentProviders {
@@ -445,7 +445,8 @@ it('simulates a complete checkout and payment round with separated addresses and
 
     $initiateResponse = $this->graphQL(/** @lang GraphQL */ '
         mutation ($orderId: ID!) {
-            initiatePayment(orderId: $orderId, provider: "stripe") {
+            initiatePayment(orderId: $orderId, provider: "cash-in-hand") {
+                success
                 clientSecret
                 transactionId
                 status
@@ -455,7 +456,11 @@ it('simulates a complete checkout and payment round with separated addresses and
     ', ['orderId' => $orderId]);
     $initiateResponse->assertSuccessful();
 
-    // Step 7: Record successful payment transaction (capture)
+    expect($initiateResponse->json('data.initiatePayment.success'))->toBeTrue()
+        ->and($initiateResponse->json('data.initiatePayment.clientSecret'))->toBeNull()
+        ->and($initiateResponse->json('data.initiatePayment.transactionId'))->not->toBeNull();
+
+    // Step 7: A browser cannot claim a successful card capture directly.
     $captureResponse = $this->graphQL(/** @lang GraphQL */ '
         mutation ($orderId: ID!, $amount: Int!) {
             recordOrderTransaction(
@@ -486,11 +491,8 @@ it('simulates a complete checkout and payment round with separated addresses and
         'amount' => $totalAmount,
     ]);
 
-    $captureResponse->assertSuccessful();
-    $transaction = $captureResponse->json('data.recordOrderTransaction');
-    expect($transaction['success'])->toBeTrue()
-        ->and($transaction['amount'])->toBe($totalAmount)
-        ->and($transaction['reference'])->toBe('ch_stripe_round_test_999');
+    expect($captureResponse->json('errors'))->not->toBeNull()
+        ->and($captureResponse->json('data.recordOrderTransaction'))->toBeNull();
 
     // Step 8: Verify Order state is now 'paid' with recorded transactions and addresses intact
     $finalOrderResponse = $this->graphQL(/** @lang GraphQL */ '
@@ -716,4 +718,3 @@ it('supports saved customer addresses with taxIdentifier and sync flags on cart'
         ->and($cartBilling['taxIdentifier'])->toBe('IT11223344556')
         ->and($cartBilling['vatNo'])->toBe('IT11223344556');
 });
-

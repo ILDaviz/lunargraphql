@@ -3,6 +3,7 @@ extend type Mutation {
     Create an order from the current session cart (or specified cart)
     """
     createOrderFromCart(
+        cartId: ID @globalId(decode: ID)
         cartID: ID @globalId(decode: ID)
     ): Order!
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@createOrderFromCart")
@@ -12,7 +13,8 @@ extend type Mutation {
     )
 
     """
-    Record a payment transaction against an order
+    Record a privileged manual transaction against an order. External provider
+    results must come from a verified server-side webhook.
     """
     recordOrderTransaction(
         orderId: ID! @globalId(decode: ID)
@@ -27,6 +29,7 @@ extend type Mutation {
         success: Boolean = true
         meta: String
     ): Transaction!
+    @guard(with: ["web", "sanctum"])
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@recordOrderTransactionMutation")
     @throttle(
         maxAttempts: 30
@@ -43,6 +46,21 @@ extend type Mutation {
         meta: String
     ): PaymentIntentResponse!
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@initiatePaymentMutation")
+    @throttle(
+        maxAttempts: 30
+        decayMinutes: 1
+    )
+
+    """
+    Authorize a payment directly using Lunar's payment drivers (e.g. offline, cash-in-hand, or custom driver)
+    """
+    authorizePayment(
+        cartId: ID @globalId(decode: ID)
+        orderId: ID @globalId(decode: ID)
+        paymentType: String = "cash-in-hand"
+        meta: String
+    ): PaymentAuthorizeResponse!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\OrderResolver@authorizePaymentMutation")
     @throttle(
         maxAttempts: 30
         decayMinutes: 1

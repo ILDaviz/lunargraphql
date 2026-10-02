@@ -20,7 +20,7 @@ type Product {
     attributeData: [AttributeData!]!
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@attributeDataField")
     variants: [ProductVariant!]!
-    @hasMany
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CatalogResolver@resolveVariants")
     variant: ProductVariant
     @hasOne
     collections: [Collection!]!
@@ -36,7 +36,6 @@ type Product {
     prices: [Price!]!
     @hasManyThrough
     price(currency: String): Price
-    @with(relation: "prices.currency")
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\PriceResolver@resolveProductPrice")
     hasVariants: Boolean!
     @rename(attribute: "has_variants")
@@ -123,7 +122,6 @@ type ProductVariant {
     priceBreaks: [Price!]!
     @hasMany(relation: "priceBreaks")
     price(currency: String): Price
-    @with(relation: "basePrices.currency")
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\PriceResolver@resolveVariantPrice")
     thumbnail: Image
     @with(relation: "images")
@@ -254,12 +252,8 @@ type Collection {
     @with(relation: "media")
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CatalogResolver@resolveImages")
     products: [Product!]!
-    @belongsToMany(relation: "products")
-    paginatedProducts(
-        first: Int = 12
-        page: Int
-        filter: CatalogFilterInput
-    ): [Product!]!
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CatalogResolver@resolveCollectionProductList")
+    paginatedProducts(filter: CatalogFilterInput): [Product!]!
     @paginate(builder: "Lunargraphql\\GraphQL\\Builders\\CatalogBuilder@resolveCollectionProducts", defaultCount: 12, maxCount: 100)
     customerGroups: [CustomerGroup!]!
     @belongsToMany(relation: "customerGroups")
@@ -576,6 +570,7 @@ type Address {
 type Cart {
     id: ID!
     @globalId
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@resolveId")
     publicId: String
     @rename(attribute: "public_id")
     currency: Currency
@@ -601,7 +596,7 @@ type Cart {
     taxZone: TaxZone
     @belongsTo(relation: "taxZone")
     order: Order
-    @belongsTo(relation: "order")
+    @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CartResolver@resolveOrder")
     meta: String
     @field(resolver: "Lunargraphql\\GraphQL\\Resolvers\\CommonResolver@metaField")
     isShippable: Boolean!
@@ -1123,6 +1118,7 @@ type PaymentIntentResponse {
     success: Boolean!
     clientSecret: String
     orderId: ID
+    transactionId: ID
     status: String
     requiresAction: Boolean!
     redirectUrl: String
@@ -1130,10 +1126,18 @@ type PaymentIntentResponse {
 }
 
 type PaymentProvider {
+    id: ID!
     handle: String!
     name: String!
     driver: String!
     enabled: Boolean!
 }
 
-
+type PaymentAuthorizeResponse {
+    success: Boolean!
+    message: String
+    orderId: ID
+    order: Order
+    paymentType: String
+    status: String
+}

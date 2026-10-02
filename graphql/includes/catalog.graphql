@@ -333,6 +333,7 @@ input CatalogFilterInput {
     filters: [FilterInput!]
     priceRange: PriceRangeInput
     prices: PriceRangeInput
+    currency: String
     options: [ID!]
     optionValues: [ID!]
     sortBy: String

@@ -37,11 +37,21 @@ Designed for headless e-commerce frontends (Next.js, Nuxt, Remix, Mobile Apps) w
 
 ## Requirements
 
-- PHP `^8.2`, `^8.3`, or `^8.4`
-- Laravel `^11.0` or `^12.0`
-- Lunar Core `^2.0`
+- PHP `^8.4`
+- Laravel `^12.0` or `^13.0`
+- Lunar Core `2.0.0-alpha.6` (LunarPHP v2 prerelease)
 - Nuwave Lighthouse `^6.0`
 - Laravel Sanctum `^4.0`
+
+> This release targets Lunar Core `2.0.0-alpha.6`; compatibility with a stable LunarPHP v2 release is not yet certified.
+
+## Storefront and payment security
+
+- Guest cart IDs use Lunar's opaque `public_id`; treat them as bearer credentials and do not expose them in public URLs or logs.
+- An authenticated customer can access only their own carts and orders. A guest looking up an order outside its owning cart session must provide the reference and matching billing/shipping email.
+- `recordOrderTransaction` is restricted to authenticated callers with the host application's `record-order-transaction` Gate ability and accepts only manual entries. Record card/provider outcomes from a verified server-side webhook, never from browser-supplied success values.
+- Payment providers must be configured in `lunar.payments.types`. Missing or failing providers return an error; the API does not fabricate payment intents or successful transactions.
+- To allow a trusted staff role to record transactions, define the `record-order-transaction` Gate ability in the host Laravel application and ensure it checks a privileged role/policy rather than ordinary customer ownership.
 
 ---
 

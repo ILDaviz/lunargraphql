@@ -24,6 +24,16 @@ class OrderException extends ApplicationException
         return new static(static::trans('amount_exceeds_total', 'Transaction amount cannot exceed order total.'), 422);
     }
 
+    public static function paymentProviderUnavailable(): self
+    {
+        return new static(static::trans('payment_provider_unavailable', 'The selected payment provider is unavailable or disabled.'), 422);
+    }
+
+    public static function paymentFailed(?string $message = null): self
+    {
+        return new static($message ?? static::trans('payment_failed', 'The payment provider could not authorize this payment.'), 422);
+    }
+
     public function isClientSafe(): bool
     {
         return true;

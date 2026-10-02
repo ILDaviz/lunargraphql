@@ -7,6 +7,8 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Lunar\Core\Contracts\Actions\Carts\SetsShippingOption;
+use Lunar\Core\Contracts\LunarUser;
+use Lunar\Core\Enums\SellingPolicy;
 use Lunar\Core\Facades\CartSession;
 use Lunar\Core\Facades\Discounts;
 use Lunar\Core\Facades\ShippingManifest;
@@ -36,24 +38,39 @@ class CartResolver
         $cartId = $this->extractIdFromArgs($args, 'cartId') ?? $this->extractIdFromArgs($args, 'cartID');
         $user = $this->getUserLoggedIn();
 
-        if ($cartId) {
+        if ($cartId !== null) {
             /** @var Cart|null $cart */
-            $cart = Cart::with(config('lunar.cart.eager_load', []))->find($cartId);
-            if ($cart) {
-                if ($cart->user_id && (! $user || (int) $cart->user_id !== (int) $user->id)) {
+            $query = Cart::with(config('lunar.cart.eager_load', []));
+            $cart = is_numeric($cartId)
+                ? $query->find($cartId)
+                : $query->where('public_id', $cartId)->first();
+            throw_unless($cart, CartException::cartNotFound());
+
+            if (is_numeric($cartId)) {
+                $sessionCart = CartSession::current(calculate: false);
+                if (! $sessionCart || (int) $sessionCart->id !== (int) $cart->id) {
                     throw CartException::cartNotFound();
                 }
-                if ($user && ! $cart->user_id) {
-                    $cart->user_id = $user->id;
+            }
+
+            if ($cart->user_id && (! $user || (int) $cart->user_id !== (int) $user->getAuthIdentifier())) {
+                throw CartException::cartNotFound();
+            }
+            if ($user && ! $cart->user_id) {
+                if ($user instanceof LunarUser) {
+                    CartSession::associate($cart, $user, config('lunar.cart.auth_policy', 'merge'));
+                    $cart = CartSession::current(calculate: false) ?? Cart::with(config('lunar.cart.eager_load', []))->findOrFail($cart->id);
+                } else {
+                    $cart->user_id = $user->getAuthIdentifier();
                     $cart->save();
                 }
-                try {
-                    $cart->calculate();
-                } catch (Throwable) {
-                }
-
-                return $cart;
             }
+            try {
+                $cart->calculate();
+            } catch (Throwable) {
+            }
+
+            return $cart;
         }
 
         $cart = CartSession::current();
@@ -68,13 +85,20 @@ class CartResolver
                 'currency_id' => $currency?->id,
                 'channel_id' => $channel?->id,
                 'region_id' => $region?->id,
-                'user_id' => $user?->id,
+                'user_id' => $user?->getAuthIdentifier(),
             ]);
 
             CartSession::use($cart);
+        } elseif ($cart->user_id && (! $user || (int) $cart->user_id !== (int) $user->getAuthIdentifier())) {
+            throw CartException::cartNotFound();
         } elseif ($user && ! $cart->user_id) {
-            $cart->user_id = $user->id;
-            $cart->save();
+            if ($user instanceof LunarUser) {
+                CartSession::associate($cart, $user, config('lunar.cart.auth_policy', 'merge'));
+                $cart = CartSession::current(calculate: false) ?? Cart::findOrFail($cart->id);
+            } else {
+                $cart->user_id = $user->getAuthIdentifier();
+                $cart->save();
+            }
         }
 
         try {
@@ -86,9 +110,14 @@ class CartResolver
         return $cart;
     }
 
+    public function resolveId(Cart $cart): string
+    {
+        return (string) $cart->public_id;
+    }
+
     protected function assertCartNotCompleted(Cart $cart): void
     {
-        if (method_exists($cart, 'completedOrder') && $cart->completedOrder()->exists()) {
+        if ($cart->hasCompletedOrders() && ! config('lunar.cart_session.allow_multiple_orders_per_cart', false)) {
             throw new CartException(CartException::trans('cart_already_ordered', 'This cart has already been converted into an order and cannot be modified.'), 422);
         }
     }
@@ -107,20 +136,20 @@ class CartResolver
 
         throw_unless($productVariant, CartException::productVariantNotFound());
 
-        // Validate purchasability and inventory stock limits
+        // Validate purchasability and cumulative stock through Lunar v2 APIs.
         if ($quantity > 0) {
             if (method_exists($productVariant, 'isPurchasable') && ! $productVariant->isPurchasable()) {
                 throw new CartException(CartException::trans('not_purchasable', 'This product variant is currently not available for purchase.'), 422);
             }
 
-            if (($productVariant->selling_policy ?? null) !== 'always' && isset($productVariant->stock_available)) {
+            if ($productVariant->selling_policy !== SellingPolicy::Always) {
                 $existingLine = $cart->lines()->where([
                     'purchasable_type' => $productVariant->getMorphClass(),
                     'purchasable_id' => $productVariant->id,
                 ])->first();
                 $currentQty = $existingLine ? (int) $existingLine->quantity : 0;
 
-                if (($currentQty + $quantity) > (int) $productVariant->stock_available) {
+                if (! $productVariant->canBeFulfilledAtQuantity($currentQty + $quantity)) {
                     throw new CartException(CartException::trans('insufficient_stock', 'Insufficient stock available for this product variant.'), 422);
                 }
             }
@@ -170,8 +199,8 @@ class CartResolver
                 throw new CartException(CartException::trans('not_purchasable', 'This product variant is currently not available for purchase.'), 422);
             }
 
-            if (($purchasable->selling_policy ?? null) !== 'always' && isset($purchasable->stock_available)) {
-                if ($quantity > (int) $purchasable->stock_available) {
+            if ($purchasable->selling_policy !== SellingPolicy::Always) {
+                if (! $purchasable->canBeFulfilledAtQuantity($quantity)) {
                     throw new CartException(CartException::trans('insufficient_stock', 'Insufficient stock available for this product variant.'), 422);
                 }
             }
@@ -387,6 +416,7 @@ class CartResolver
             'first_name' => $customerAddress->first_name,
             'last_name' => $customerAddress->last_name,
             'company_name' => $customerAddress->company_name,
+            'tax_identifier' => $customerAddress->tax_identifier,
             'line_one' => $customerAddress->line_one,
             'line_two' => $customerAddress->line_two,
             'line_three' => $customerAddress->line_three,
@@ -438,6 +468,7 @@ class CartResolver
             ];
 
             $cart->setBillingAddress(array_filter($billingData, fn ($v) => $v !== null));
+
             return $cart->refresh()->calculate();
         }
 
@@ -516,12 +547,24 @@ class CartResolver
 
     protected function getCustomerFromUser(mixed $user): ?Customer
     {
-        if (method_exists($user, 'latestCustomer') && $user->latestCustomer()) {
-            return $user->latestCustomer();
+        if (method_exists($user, 'latestCustomer') && $customer = $user->latestCustomer()) {
+            return $customer;
         }
 
-        if (method_exists($user, 'customers') && $user->customers()->exists()) {
-            return $user->customers()->first();
+        if (method_exists($user, 'customers')) {
+            $customer = $user->customers()->first();
+            if ($customer) {
+                return $customer;
+            }
+
+            $nameParts = explode(' ', (string) $user->name, 2);
+            $customer = Customer::create([
+                'first_name' => $nameParts[0] ?? $user->name,
+                'last_name' => $nameParts[1] ?? '',
+            ]);
+            $user->customers()->attach($customer);
+
+            return $customer;
         }
 
         return null;
@@ -575,6 +618,7 @@ class CartResolver
     public function setCartShippingOptionMutation(mixed $model, array $args): Cart
     {
         $cart = $this->resolveCart($args);
+        $this->assertCartNotCompleted($cart);
         $optionIdentifier = Arr::get($args, 'shippingOption');
 
         $shippingAddress = $cart->shippingAddress;

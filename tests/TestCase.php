@@ -59,6 +59,8 @@ class TestCase extends Orchestra
     {
         parent::setUp();
 
+        app('session')->driver()->flush();
+
         $this->seedLunarBaselines();
     }
 
